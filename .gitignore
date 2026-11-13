@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Python / pytest / ruff caches at root
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Environment variables
+.env
+.env.*
+!.env.example

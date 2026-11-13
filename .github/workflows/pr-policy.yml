@@ -1,0 +1,61 @@
+name: Branch Flow Policy
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+    branches:
+      - master
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  enforce-branch-flow:
+    name: Enforce Branching & Flow Policy
+    runs-on: ubuntu-latest
+    env:
+      BASE_REF: ${{ github.base_ref }}
+      HEAD_REF: ${{ github.head_ref }}
+      HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      BASE_REPO: ${{ github.repository }}
+    steps:
+      - name: Validate repository and branch flow rules
+        run: |
+          echo "Checking PR branch flow: '${HEAD_REPO}:${HEAD_REF}' -> '${BASE_REPO}:${BASE_REF}'"
+
+          # 1. Shared Repository Policy (No Personal Forks)
+          if [[ "${HEAD_REPO}" != "${BASE_REPO}" ]]; then
+            echo "::error::Personal forks are prohibited by the PrintHive Shared Repository Policy (doc/DevelopmentProcess.md). Please push your branch directly to ${BASE_REPO}."
+            exit 1
+          fi
+
+          # Allow automated Dependabot branches
+          if [[ "${HEAD_REF}" =~ ^dependabot/ ]]; then
+            echo "Dependabot branch '${HEAD_REF}' allowed."
+            exit 0
+          fi
+
+          # 2. PRs targeting master must come from dev
+          if [[ "${BASE_REF}" == "master" ]]; then
+            if [[ "${HEAD_REF}" != "dev" ]]; then
+              echo "::error::Pull requests targeting 'master' must originate from 'dev' (found '${HEAD_REF}'). Feature branches must target 'dev' first."
+              exit 1
+            fi
+            echo "Valid release PR flow: 'dev' -> 'master'."
+            exit 0
+          fi
+
+          # 3. PRs targeting dev must follow <username>/<feature-or-fix-being-implemented>
+          if [[ "${BASE_REF}" == "dev" ]]; then
+            if [[ ! "${HEAD_REF}" =~ ^[a-z0-9_-]+/[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+              echo "::error::Branch '${HEAD_REF}' does not match the required naming convention '<username>/<feature-or-fix-being-implemented>' (lowercase username + '/' + kebab-case summary, e.g., 'artus/stl-upload-validation')."
+              exit 1
+            fi
+            echo "Valid feature branch '${HEAD_REF}' targeting 'dev'."
+            exit 0
+          fi
