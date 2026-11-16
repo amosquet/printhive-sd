@@ -136,6 +136,16 @@ def slice_stl(
 
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, check=False)
+        if proc.returncode == 206:
+            # Retry with an explicit 90-degree Z rotation for full-plate models whose
+            # unrotated orientation exceeds the bed and cannot be auto-arranged with margin.
+            rot_cmd = [binary, "--rotate", "90", "--slice", "0", "--outputdir", str(output_dir)]
+            if datadir:
+                rot_cmd += ["--datadir", str(datadir)]
+            if settings:
+                rot_cmd += ["--load-settings", str(settings)]
+            rot_cmd.append(str(stl_path))
+            proc = subprocess.run(rot_cmd, capture_output=True, text=True, timeout=timeout_s, check=False)
     except subprocess.TimeoutExpired as exc:
         raise SliceError(f"Orca Slicer timed out after {timeout_s}s slicing {stl_path}") from exc
     if proc.returncode != 0:

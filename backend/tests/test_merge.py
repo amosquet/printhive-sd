@@ -140,3 +140,54 @@ def test_merge_rotates_gcode_when_placement_is_rotated(tmp_path: Path) -> None:
     reparsed = parse_gcode(merged, source="merged-rotated")
     assert reparsed.footprint == pytest.approx((0.0, 0.0, 66.0, 46.0), abs=1e-3)
     assert not any(ln.startswith("M486 S") for ln in reparsed.start_lines)
+
+
+def test_per_move_toolpath_simulation_invariants(tmp_path: Path) -> None:
+    # Mix parts of different sizes and heights so rotation and early-finishing parts occur
+    sizes = [(40, 60, 1.2), (40, 60, 0.8), (40, 60, 1.2), (40, 60, 0.6), (30, 30, 1.0)]
+    parts, placements = _placed_parts(tmp_path, sizes, plate=(250.0, 210.0), margin=1.0)
+    merged = merge_parts(parts)
+    bounds_by_idx = {
+        part.index: b for part, b in zip(parts, _translated_footprints(parts, placements))
+    }
+
+    active_obj: int | None = None
+    cur_z = 0.0
+    layer_z = 0.0
+    retracted = False
+    extrusion_moves_checked = 0
+
+    for raw in merged.splitlines():
+        line = raw.strip()
+        if line.startswith(";Z:"):
+            layer_z = float(line.split(":", 1)[1])
+            continue
+        code = line.split(";", 1)[0].strip()
+        if code.startswith("M486 S"):
+            active_obj = int(code.split("S", 1)[1])
+            continue
+        if not re.match(r"^G[01]\b", code):
+            continue
+        params = {m.group(1): float(m.group(2)) for m in re.finditer(r"\b([XYZEFIJ])(-?\d+(?:\.\d+)?|-?\.\d+)", code)}
+        if "Z" in params:
+            cur_z = params["Z"]
+        if "E" in params:
+            if params["E"] < 0:
+                retracted = True
+            elif params["E"] > 0 and ("X" in params or "Y" in params):
+                retracted = False
+                assert active_obj is not None
+                # Every positive XY extrusion move must occur at the nominal layer Z (not Z-hopped)
+                assert cur_z == pytest.approx(layer_z, abs=1e-5)
+                x, y = params["X"], params["Y"]
+                x0, y0, x1, y1 = bounds_by_idx[active_obj]
+                assert x0 - 1e-3 <= x <= x1 + 1e-3 and y0 - 1e-3 <= y <= y1 + 1e-3
+                for other_idx, (ox0, oy0, ox1, oy1) in bounds_by_idx.items():
+                    if other_idx != active_obj:
+                        assert not (ox0 + 1e-3 < x < ox1 - 1e-3 and oy0 + 1e-3 < y < oy1 - 1e-3)
+                extrusion_moves_checked += 1
+        if "; travel to " in line:
+            assert "E" not in params
+            assert retracted, f"inter-part travel move occurred without prior retraction: {line}"
+
+    assert extrusion_moves_checked > 100

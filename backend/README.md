@@ -34,7 +34,11 @@ print(batches[0].total_duration_s)        # FR-08/FR-10 input
 
 Each job is sliced once with the Orca Slicer CLI using the pinned presets in
 `profiles/` (FR-05: draft / standard / high_strength). Plates are sized per
-printer (`PRINTER_PLATES`); pass an explicit `BuildPlate` to override.
+printer (`PRINTER_PLATES`: `prusa-mk4` 250x210x250, `prusa-core-one+`
+250x220x270, `bambu-x1c`/`bambu-p1s` 256x256x256, `bambu-h2d-pro`
+350x320x325); pass an explicit `BuildPlate` to override. See
+`doc/Backend-Batching-and-Testing.md` for full architecture and test suite
+documentation.
 
 ### Testing with your own STL files
 

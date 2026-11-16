@@ -311,3 +311,173 @@ def test_full_build_plate_area_core_one_plus_and_h2d_pro(
     x0, y0, x1, y1 = item.footprint_bounds
     assert x0 == pytest.approx(0.0, abs=1e-3) and y0 == pytest.approx(0.0, abs=1e-3)
     assert x1 == pytest.approx(w, abs=1.0) and y1 == pytest.approx(h, abs=1.0)
+
+
+@pytest.mark.parametrize(
+    ("printer", "stl_w", "stl_h", "plate_w", "plate_h"),
+    [
+        ("prusa-core-one+", 220.0, 250.0, 250.0, 220.0),
+        ("bambu-h2d-pro", 320.0, 350.0, 350.0, 320.0),
+    ],
+)
+def test_rotated_full_plate_core_one_plus_and_h2d_pro(
+    printer: str, stl_w: float, stl_h: float, plate_w: float, plate_h: float, tmp_path: Path
+) -> None:
+    # STL is oriented 90 degrees relative to the plate so rotation is required to fit
+    rot_stl = _write_box_stl(tmp_path / f"{printer}_rot_full.stl", stl_w, stl_h, 0.4)
+    batches = plan_batches(
+        [PrintJob(source=rot_stl, printer=printer)],
+        margin=1.0,
+        slicer=_slicer(),
+        workdir=tmp_path / "fixture",
+    )
+    assert len(batches) == 1
+    (item,) = batches[0].items
+    assert item.placement.rotated
+    assert item.footprint_bounds == pytest.approx((0.0, 0.0, plate_w, plate_h), abs=1.0)
+
+    if find_orca_slicer() is None:
+        return
+    orca_batches = plan_batches(
+        [PrintJob(source=rot_stl, printer=printer)],
+        margin=1.0,
+        workdir=tmp_path / "orca",
+    )
+    assert len(orca_batches) == 1
+    (orca_item,) = orca_batches[0].items
+    ox0, oy0, ox1, oy1 = orca_item.footprint_bounds
+    assert ox0 == pytest.approx(0.0, abs=1e-3) and oy0 == pytest.approx(0.0, abs=1e-3)
+    assert ox1 == pytest.approx(plate_w, abs=1.0) and oy1 == pytest.approx(plate_h, abs=1.0)
+
+
+def test_fr03_rejects_oversize_xy_and_z_models(tmp_path: Path) -> None:
+    # SDP FR-03 test case: 300x300mm object on a 250x250mm profile must be rejected
+    oversize_xy = _write_box_stl(tmp_path / "oversize_300.stl", 300.0, 300.0, 10.0)
+    with pytest.raises(ValueError, match="exceeds build plate"):
+        plan_batches([PrintJob(source=oversize_xy)], PLATE, slicer=_slicer(), workdir=tmp_path)
+
+    # 280mm tall model exceeds Prusa Core One+ (270mm max_z) and MK4 (250mm),
+    # but fits Bambu H2D Pro (325mm max_z)
+    tall_280 = _write_box_stl(tmp_path / "tall_280.stl", 20.0, 20.0, 280.0)
+    with pytest.raises(ValueError, match="exceeds max build height"):
+        plan_batches(
+            [PrintJob(source=tall_280, printer="prusa-core-one+")],
+            slicer=_slicer(),
+            workdir=tmp_path / "c1",
+        )
+    h2d_batches = plan_batches(
+        [PrintJob(source=tall_280, printer="bambu-h2d-pro")],
+        slicer=_slicer(),
+        workdir=tmp_path / "h2d_ok",
+    )
+    assert len(h2d_batches) == 1
+
+    tall_330 = _write_box_stl(tmp_path / "tall_330.stl", 20.0, 20.0, 330.0)
+    with pytest.raises(ValueError, match="exceeds max build height"):
+        plan_batches(
+            [PrintJob(source=tall_330, printer="bambu-h2d-pro")],
+            slicer=_slicer(),
+            workdir=tmp_path / "h2d_bad",
+        )
+
+
+def test_fr11_three_50x50_models_compile_into_one_gcode(tmp_path: Path) -> None:
+    # SDP FR-11 acceptance test: three 50x50mm objects compile into one G-code file
+    stl_50 = _write_box_stl(tmp_path / "part_50x50.stl", 50.0, 50.0, 4.0)
+    jobs = [PrintJob(source=stl_50, name=f"part_{i}") for i in range(3)]
+    batches = plan_batches(jobs, PLATE, margin=1.0, slicer=_slicer(), workdir=tmp_path)
+    assert len(batches) == 1
+    batch = batches[0]
+    assert len(batch.items) == 3
+    assert "M486 T3" in batch.gcode
+    bounds = [item.footprint_bounds for item in batch.items]
+    for i, a in enumerate(bounds):
+        for b in bounds[i + 1 :]:
+            assert not _overlap(a, b)
+
+
+def test_multi_tick_queue_simulation_slices_each_job_once(
+    stl_files: list[Path], tmp_path: Path
+) -> None:
+    sliced_counts: dict[str, int] = {}
+
+    def tracking_slicer(src: Path, out: Path) -> Path:
+        sliced_counts[out.name] = sliced_counts.get(out.name, 0) + 1
+        return fixture_slice_stl(src, out)
+
+    j1 = PrintJob(source=stl_files[0], name="job_1")
+    j2 = PrintJob(source=stl_files[1], name="job_2")
+    j3 = PrintJob(source=stl_files[2], name="job_3")
+    j4 = PrintJob(source=stl_files[0], name="job_4")
+
+    # Tick 1: j1, j2 arrive -> both sliced once
+    b1 = plan_batches([j1, j2], PLATE, slicer=tracking_slicer, workdir=tmp_path)
+    assert len(b1) == 1 and len(b1[0].items) == 2
+    assert sliced_counts == {"job_1": 1, "job_2": 1}
+
+    # Tick 2: j3 arrives while j1, j2 remain queued -> only j3 is sliced
+    b2 = plan_batches([j1, j2, j3], PLATE, slicer=tracking_slicer, workdir=tmp_path)
+    assert len(b2) == 1 and len(b2[0].items) == 3
+    assert sliced_counts == {"job_1": 1, "job_2": 1, "job_3": 1}
+
+    # Tick 3: j1 removed, j4 arrives, and j2/j3 are re-instantiated without gcode_path
+    b3 = plan_batches(
+        [
+            PrintJob(source=stl_files[1], name="job_2"),
+            PrintJob(source=stl_files[2], name="job_3"),
+            j4,
+        ],
+        PLATE,
+        slicer=tracking_slicer,
+        workdir=tmp_path,
+    )
+    assert len(b3) == 1 and len(b3[0].items) == 3
+    assert sliced_counts == {"job_1": 1, "job_2": 1, "job_3": 1, "job_4": 1}
+
+
+def test_negative_coordinate_stl_batches_cleanly(tmp_path: Path) -> None:
+    # STL centered at origin with negative X/Y coordinates [-15..15] x [-25..25]
+    neg_stl = tmp_path / "centered.stl"
+    x0, x1, y0, y1, z0, z1 = -15.0, 15.0, -25.0, 25.0, 0.0, 2.0
+    v = [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0), (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)]
+    f = [(0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)]
+    with neg_stl.open("w") as fh:
+        fh.write("solid centered\n")
+        for a, b, c in f:
+            fh.write("  facet normal 0 0 1\n    outer loop\n")
+            for p in (v[a], v[b], v[c]):
+                fh.write(f"      vertex {p[0]} {p[1]} {p[2]}\n")
+            fh.write("    endloop\n  endfacet\n")
+        fh.write("endsolid centered\n")
+
+    batches = plan_batches(
+        [PrintJob(source=neg_stl, name="neg_a"), PrintJob(source=neg_stl, name="neg_b")],
+        PLATE,
+        margin=1.0,
+        slicer=_slicer(),
+        workdir=tmp_path,
+    )
+    assert len(batches) == 1
+    reparsed = parse_gcode(batches[0].gcode, source="merged-neg")
+    assert reparsed.footprint[0] == pytest.approx(0.0, abs=1e-3)
+    assert reparsed.footprint[1] == pytest.approx(0.0, abs=1e-3)
+
+
+def test_orca_slicer_all_fr05_profiles_end_to_end(tmp_path: Path) -> None:
+    if find_orca_slicer() is None:
+        pytest.skip("Orca Slicer CLI not found on this machine")
+    cube = Path(__file__).parent / "stl" / "cube_20mm.stl"
+    results = {}
+    for prof in ("draft", "standard", "high_strength"):
+        batches = plan_batches(
+            [PrintJob(source=cube, profile=prof)],
+            workdir=tmp_path / prof,
+        )
+        assert len(batches) == 1
+        results[prof] = batches[0].items[0].parsed
+
+    # draft uses 0.3mm layers (67 layers for 20mm); standard & high_strength use 0.2mm (100 layers)
+    assert len(results["draft"].layers) < len(results["standard"].layers)
+    assert len(results["standard"].layers) == len(results["high_strength"].layers) == 100
+    assert results["draft"].duration_s < results["standard"].duration_s < results["high_strength"].duration_s
+    assert results["draft"].filament_mm < results["standard"].filament_mm < results["high_strength"].filament_mm

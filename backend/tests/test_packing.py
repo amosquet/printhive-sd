@@ -96,3 +96,36 @@ def test_maxrects_splits_partially_overlapping_free_rects() -> None:
         for i, a in enumerate(plate):
             for b in plate[i + 1 :]:
                 assert not _overlaps(a.bounds(), b.bounds())
+
+
+def test_full_plate_rect_fits_even_with_positive_margin() -> None:
+    for w, h in [(250.0, 220.0), (350.0, 320.0)]:
+        placements = pack_rectangles([Rect(w, h)], w, h, margin=2.0)
+        assert placements is not None
+        assert placements[0].bounds() == (0.0, 0.0, w, h)
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_randomized_packing_invariants(seed: int) -> None:
+    import random
+
+    rng = random.Random(seed)
+    rects = [Rect(rng.uniform(10.0, 90.0), rng.uniform(10.0, 90.0)) for _ in range(40)]
+    plate_w, plate_h, margin = 250.0, 210.0, 1.5
+    plates = pack_into_plates(rects, plate_w, plate_h, margin=margin, allow_rotation=True)
+    seen_indices: set[int] = set()
+    for plate in plates:
+        for i, a in enumerate(plate):
+            seen_indices.add(a.index)
+            orig = rects[a.index]
+            expected_dims = (orig.h, orig.w) if a.rotated else (orig.w, orig.h)
+            assert (a.w, a.h) == pytest.approx(expected_dims)
+            ax0, ay0, ax1, ay1 = a.bounds()
+            assert ax0 >= -1e-6 and ay0 >= -1e-6
+            assert ax1 <= plate_w + 1e-6 and ay1 <= plate_h + 1e-6
+            for b in plate[i + 1 :]:
+                bx0, by0, bx1, by1 = b.bounds()
+                gap_x = max(bx0 - ax1, ax0 - bx1)
+                gap_y = max(by0 - ay1, ay0 - by1)
+                assert max(gap_x, gap_y) >= margin - 1e-6
+    assert seen_indices == set(range(len(rects)))

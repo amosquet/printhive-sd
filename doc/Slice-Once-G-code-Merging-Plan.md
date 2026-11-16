@@ -54,8 +54,10 @@ pipeline.py  PrintJob / BuildPlate / PRINTER_PLATES / Batch / plan_batches():
 
 Pinned presets live in `backend/profiles/` (machine + FR-05 Draft/Standard/
 High Strength process JSONs, developed against OrcaSlicer 2.5.0). Plate sizes
-are per printer (`PRINTER_PLATES`: prusa-mk4 250x210, bambu-x1c/p1s 256x256,
-generic default 250x250).
+are per printer (`PRINTER_PLATES`: `prusa-mk4` 250x210x250, `prusa-core-one+`
+250x220x270, `bambu-x1c`/`bambu-p1s` 256x256x256, `bambu-h2d-pro` 350x320x325,
+generic default 250x250x250). See `doc/Backend-Batching-and-Testing.md` for a
+complete inventory of modules, fixes, and the 88-test verification suite.
 
 ## 4. Data flow
 

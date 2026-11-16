@@ -24,6 +24,7 @@ from .gcode import ParsedGcode, parse_gcode
 from .merge import PlacedPart, merge_parts
 from .packing import Placement, Rect, pack_into_plates
 from .slicer import normalize_printer_name, slice_stl
+from .stl import load_stl
 
 # Slicer callable: (stl_path, output_dir) -> path to produced G-code.
 Slicer = Callable[[Path, Path], Path]
@@ -180,8 +181,29 @@ def plan_batches(
         group_plate = plate or plate_for_printer(printer)
         parsed: list[tuple[PrintJob, ParsedGcode]] = []
         for job in group_jobs:
+            if job.gcode_path is None and job.source.is_file() and job.source.suffix.lower() == ".stl":
+                w, h, d = load_stl(job.source).dimensions
+                fits_xy = (w <= group_plate.width + 1e-6 and h <= group_plate.height + 1e-6) or (
+                    allow_rotation and h <= group_plate.width + 1e-6 and w <= group_plate.height + 1e-6
+                )
+                if not fits_xy:
+                    raise ValueError(
+                        f"model {job.name!r} ({w:.2f}x{h:.2f}mm) exceeds build plate "
+                        f"{group_plate.width:.2f}x{group_plate.height:.2f}mm"
+                    )
+                if d > group_plate.max_z + 1e-6:
+                    raise ValueError(
+                        f"model {job.name!r} height {d:.2f}mm exceeds max build height "
+                        f"{group_plate.max_z:.2f}mm"
+                    )
             gcode_path = _resolve_gcode(job, slicer, workdir)
-            parsed.append((job, parse_gcode(gcode_path.read_text(), source=str(gcode_path))))
+            pg = parse_gcode(gcode_path.read_text(), source=str(gcode_path))
+            if pg.layers and max(pg.layer_heights) > group_plate.max_z + 1e-6:
+                raise ValueError(
+                    f"job {job.name!r} layer Z {max(pg.layer_heights):.2f}mm exceeds max build height "
+                    f"{group_plate.max_z:.2f}mm"
+                )
+            parsed.append((job, pg))
 
         rects = [Rect(w=pg.footprint_size()[0], h=pg.footprint_size()[1]) for _, pg in parsed]
         plate_groups = pack_into_plates(

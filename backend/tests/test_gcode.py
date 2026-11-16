@@ -155,3 +155,30 @@ def test_custom_end_gcode_with_park_motion_stays_in_end_lines() -> None:
     parsed = parse_gcode(text, source="park")
     assert "G1 X0 Y210 F9000" in parsed.end_lines
     assert not any("Y210" in ln for ln in parsed.layers[0].lines)
+
+
+def test_m82_absolute_extrusion_with_g92_reset() -> None:
+    text = (
+        "M82\nG92 E0\n"
+        ";LAYER_CHANGE\n;Z:0.2\nG92 E0\nG1 X10 Y15 E1.0\nG1 X30 Y35 E2.5\n"
+        ";LAYER_CHANGE\n;Z:0.4\nG92 E0\nG1 X5 Y10 E0.5\nG1 X40 Y50 E1.2\n"
+        "M84\n"
+    )
+    parsed = parse_gcode(text, source="m82")
+    assert parsed.footprint == pytest.approx((5.0, 10.0, 40.0, 50.0))
+
+
+def test_single_axis_motion_and_inline_comments() -> None:
+    fp = (10.0, 20.0, 50.0, 80.0)
+    assert (
+        translate_xy("G1 X15 ; comment with X99 Y99", 5.0, 2.0)
+        == "G1 X20 ; comment with X99 Y99"
+    )
+    assert (
+        translate_xy("G1 X10 ; move X only", 90.0, 180.0, rotated=True, footprint=fp)
+        == "G1 Y200 ; move X only"
+    )
+    assert (
+        translate_xy("G1 Y80 ; move Y only", 90.0, 180.0, rotated=True, footprint=fp)
+        == "G1 X100 ; move Y only"
+    )
