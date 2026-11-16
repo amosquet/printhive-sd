@@ -51,3 +51,9 @@ committed presets; otherwise they skip (as in CI):
 ```bash
 uv run pytest tests/ -k orca   # real Orca Slicer end-to-end
 ```
+
+## Scheduling
+
+`src/backend/priority_scheduling.py` ranks eligible jobs using concrete staff
+shifts, an explicit clock, and a configured priority-aging rate. See the
+[scheduling design and integration notes](../doc/Scheduling-Foundation.md).
