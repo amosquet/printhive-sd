@@ -50,7 +50,6 @@
  "bed_mesh_min": "-99999,-99999",
  "bed_mesh_probe_distance": "50,50",
  "bed_temperature_formula": "by_highest_temp",
- "before_layer_change_gcode": "G92 E0\n",
  "belt_frame_tilt_angle": "45",
  "belt_frame_tilt_decouple": "0",
  "belt_printer": "0",
@@ -86,7 +85,7 @@
  "brim_ears_outer_only": "0",
  "brim_flow_ratio": "1",
  "brim_object_gap": "0",
- "brim_type": "auto_brim",
+ "brim_type": "no_brim",
  "brim_use_efc_outline": "0",
  "brim_width": "0",
  "build_plate_tilt_x": "0",
@@ -699,7 +698,6 @@
  "is_infill_first": "0",
  "lateral_lattice_angle_1": "-45",
  "lateral_lattice_angle_2": "45",
- "layer_change_gcode": ";LAYER_CHANGE\n;Z:[layer_z]\nG92 E0\n",
  "layer_height": "0.3",
  "leading_brim_length": "0",
  "lightning_overhang_angle": "45",
@@ -713,7 +711,6 @@
   "0"
  ],
  "machine_bed_mass_Y": "0",
- "machine_end_gcode": "M104 S0 ; turn off temperature\nG28 X0  ; home X axis\nM84     ; disable motors\n",
  "machine_hotend_change_time": "0",
  "machine_load_filament_time": "0",
  "machine_max_acceleration_e": [
@@ -791,7 +788,6 @@
  ],
  "machine_pause_gcode": "",
  "machine_prepare_compensation_time": "260",
- "machine_start_gcode": "G28 ; home all axes\nG1 Z5 F5000 ; lift nozzle\n",
  "machine_tool_change_time": "0",
  "machine_unload_filament_time": "0",
  "make_overhang_printable": "0",
@@ -924,20 +920,12 @@
  "print_order": "default",
  "print_plugin_config_overrides": "",
  "print_sequence": "by layer",
- "printable_area": [
-  "0x0",
-  "200x0",
-  "200x200",
-  "0x200"
- ],
- "printable_height": "100",
  "printer_extruder_id": [
   "1"
  ],
  "printer_extruder_variant": [
   "Direct Drive Standard"
  ],
- "printer_model": "",
  "printer_notes": "",
  "printer_structure": "undefine",
  "printer_technology": "FFF",
@@ -1029,7 +1017,7 @@
  "skin_infill_line_width": "100%",
  "skirt_distance": "2",
  "skirt_height": "1",
- "skirt_loops": "1",
+ "skirt_loops": "0",
  "skirt_speed": "50",
  "skirt_start_angle": "-135",
  "skirt_type": "combined",

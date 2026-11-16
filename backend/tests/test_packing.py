@@ -84,3 +84,15 @@ def test_deterministic() -> None:
     a = pack_rectangles(rects, 250, 250, margin=1.0)
     b = pack_rectangles(rects, 250, 250, margin=1.0)
     assert a == b
+
+
+def test_maxrects_splits_partially_overlapping_free_rects() -> None:
+    rects = [Rect(80, 160), Rect(150, 80), Rect(60, 180)]
+    placements = pack_rectangles(rects, 200, 240, margin=0.0, allow_rotation=False)
+    # 60x180 cannot fit without overlapping 150x80 once 80x160 and 150x80 are placed
+    assert placements is None
+    plates = pack_into_plates(rects, 200, 240, margin=0.0, allow_rotation=False)
+    for plate in plates:
+        for i, a in enumerate(plate):
+            for b in plate[i + 1 :]:
+                assert not _overlaps(a.bounds(), b.bounds())

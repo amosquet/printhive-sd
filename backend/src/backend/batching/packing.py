@@ -38,20 +38,26 @@ class Placement:
 
 
 def _split_free(free: tuple[float, float, float, float], used: tuple[float, float, float, float]) -> list[tuple[float, float, float, float]]:
-    """Split a free rectangle around a used rectangle (MaxRects guillotine split)."""
+    """Split a free rectangle around an intersecting used rectangle (MaxRects split)."""
 
     fx, fy, fw, fh = free
     ux, uy, uw, uh = used
     out: list[tuple[float, float, float, float]] = []
-    if ux + uw < fx + fw:
+    if ux + uw < fx + fw - 1e-9:
         out.append((ux + uw, fy, fx + fw - (ux + uw), fh))
-    if uy + uh < fy + fh:
+    if uy + uh < fy + fh - 1e-9:
         out.append((fx, uy + uh, fw, fy + fh - (uy + uh)))
-    if ux > fx:
+    if ux > fx + 1e-9:
         out.append((fx, fy, ux - fx, fh))
-    if uy > fy:
+    if uy > fy + 1e-9:
         out.append((fx, fy, fw, uy - fy))
     return out
+
+
+def _intersects(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    return ax < bx + bw - 1e-9 and ax + aw > bx + 1e-9 and ay < by + bh - 1e-9 and ay + ah > by + 1e-9
 
 
 def _contained(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
@@ -78,11 +84,10 @@ class PlatePacker:
         for w, h, rotated in (
             [(rect.w, rect.h, False), (rect.h, rect.w, True)] if allow_rotation else [(rect.w, rect.h, False)]
         ):
-            ew, eh = w + self.margin, h + self.margin  # margin acts as inter-part gap
             for fx, fy, fw, fh in self.free:
-                if ew <= fw + 1e-9 and eh <= fh + 1e-9:
-                    leftover_h = fw - ew
-                    leftover_v = fh - eh
+                if w <= fw + 1e-9 and h <= fh + 1e-9:
+                    leftover_h = fw - w
+                    leftover_v = fh - h
                     short_side = min(leftover_h, leftover_v)
                     long_side = max(leftover_h, leftover_v)
                     score = (short_side, long_side)
@@ -98,23 +103,24 @@ class PlatePacker:
         if placement is None:
             return None
         used = (
-            placement.x,
-            placement.y,
-            placement.w + self.margin,
-            placement.h + self.margin,
+            placement.x - self.margin,
+            placement.y - self.margin,
+            placement.w + 2 * self.margin,
+            placement.h + 2 * self.margin,
         )
         new_free: list[tuple[float, float, float, float]] = []
         for free in self.free:
-            if _contained(free, used):
-                continue
-            if _contained(used, free):
+            if _intersects(free, used):
                 new_free.extend(_split_free(free, used))
             else:
                 new_free.append(free)
-        # drop free rects contained in others
+        # drop free rects contained in others (keeping one copy when identical)
         pruned: list[tuple[float, float, float, float]] = []
         for i, a in enumerate(new_free):
-            if any(i != j and _contained(a, b) for j, b in enumerate(new_free)):
+            if any(
+                i != j and _contained(a, b) and (not _contained(b, a) or j < i)
+                for j, b in enumerate(new_free)
+            ):
                 continue
             pruned.append(a)
         self.free = pruned

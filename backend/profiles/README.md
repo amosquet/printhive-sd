@@ -5,8 +5,14 @@ build on the Orca Slicer CLI, we do not reimplement slicing). They are used by
 default by `backend.batching.slicer.slice_stl()` via `default_settings(profile)`
 — no environment variables needed:
 
-- `printhive_mk4.machine.json` — Prusa MK4-class machine (250x210 bed, 0.4 mm
-  nozzle, relative extrusion M83, shared start/end G-code)
+- `printhive_mk4.machine.json` — Prusa MK4-class machine (250x210x250 bed,
+  0.4 mm nozzle, relative extrusion M83, shared start/end G-code)
+- `printhive_core_one_plus.machine.json` — Prusa CORE One / CORE One+ machine
+  (250x220x270 bed)
+- `printhive_bambu_x1c.machine.json` — Bambu Lab X1C / P1S machine
+  (256x256x256 bed)
+- `printhive_h2d_pro.machine.json` — Bambu Lab H2D / H2D Pro machine
+  (350x320x325 bed)
 - `draft.process.json` / `standard.process.json` / `high_strength.process.json`
   — the three FR-05 profiles (layer height, walls, infill, speeds)
 - `system/.gitkeep` — Orca requires a `system/` dir inside the `--datadir`

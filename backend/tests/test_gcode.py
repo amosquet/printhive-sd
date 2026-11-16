@@ -121,3 +121,37 @@ def test_time_elapsed_fallback() -> None:
     text = ";LAYER_CHANGE\n;Z:0.2\nG1 X1 Y1 E.1\n;TIME_ELAPSED:42.5\n"
     parsed = parse_gcode(text, source="t")
     assert parsed.duration_s == pytest.approx(42.5)
+
+
+def test_translate_xy_rotates_90_ccw() -> None:
+    fp = (10.0, 20.0, 50.0, 80.0)  # w=40, h=60
+    # Place rotated at (100, 200) -> dx = 100 - 10 = 90, dy = 200 - 20 = 180
+    dx, dy = 90.0, 180.0
+    assert (
+        translate_xy("G1 X10 Y20 E.5", dx, dy, rotated=True, footprint=fp)
+        == "G1 X160 Y200 E.5"
+    )
+    assert (
+        translate_xy("G1 X50 Y80 E.5", dx, dy, rotated=True, footprint=fp)
+        == "G1 X100 Y240 E.5"
+    )
+
+
+def test_trailing_m106_moves_to_next_layer() -> None:
+    text = (
+        ";LAYER_CHANGE\n;Z:0.2\nG1 X10 Y10 E.2\n; stop printing object\nM106 S122\n"
+        ";LAYER_CHANGE\n;Z:0.4\nG92 E0\nG1 X10 Y10 E.2\nM84\n"
+    )
+    parsed = parse_gcode(text, source="fan")
+    assert not any("M106" in ln for ln in parsed.layers[0].lines)
+    assert any("M106 S122" in ln for ln in parsed.layers[1].lines)
+
+
+def test_custom_end_gcode_with_park_motion_stays_in_end_lines() -> None:
+    text = (
+        ";LAYER_CHANGE\n;Z:0.2\nG1 X10 Y10 E.2\nG1 E-.8 F1800\n"
+        "M106 S0\n;TYPE:Custom\nG1 Z260 F1200\nG1 X0 Y210 F9000\nM84\n"
+    )
+    parsed = parse_gcode(text, source="park")
+    assert "G1 X0 Y210 F9000" in parsed.end_lines
+    assert not any("Y210" in ln for ln in parsed.layers[0].lines)

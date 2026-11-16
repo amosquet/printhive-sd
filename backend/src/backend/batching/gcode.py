@@ -73,8 +73,9 @@ class ParsedGcode:
 
 
 def _parse_params(line: str) -> dict[str, float]:
+    code = line.split(";", 1)[0]
     params: dict[str, float] = {}
-    for match in _PARAM_RE.finditer(line):
+    for match in _PARAM_RE.finditer(code):
         params[match.group(1)] = float(match.group(2))
     return params
 
@@ -112,6 +113,11 @@ def _scan_footprint_and_mode(lines: list[str]) -> tuple[tuple[float, float, floa
             continue
         if code == "M82":
             relative_e = False
+            continue
+        if code.startswith("G92"):
+            g92_params = _parse_params(code)
+            if "E" in g92_params:
+                last_abs_e = g92_params["E"]
             continue
         if not _MOTION_RE.match(line):
             continue
@@ -159,18 +165,33 @@ def parse_gcode(text: str, source: str = "") -> ParsedGcode:
     start_lines = [ln for ln in region[:first_layer] if ln.strip()]
 
     body = region[first_layer:]
-    # The end block starts at the first non-comment command after the last
-    # motion line of the body; everything after it is the per-file end G-code.
-    last_motion = -1
-    for i, ln in enumerate(body):
-        if _MOTION_RE.match(ln) and _parse_params(ln) and any(
-            axis in _parse_params(ln) for axis in ("X", "Y", "E")
-        ):
-            last_motion = i
-    if last_motion < 0:
+    # If Orca marks the machine end G-code with ;TYPE:Custom after the last
+    # ;LAYER_CHANGE, cut there (plus any immediately preceding M106 S0) so that
+    # park/retract moves in machine_end_gcode stay in end_lines. Otherwise fall
+    # back to cutting after the last XY/E motion line.
+    last_layer_idx = max(i for i, ln in enumerate(body) if ln.strip() == LAYER_MARKER)
+    custom_end = next(
+        (i for i in range(last_layer_idx + 1, len(body)) if body[i].strip() == ";TYPE:Custom"),
+        None,
+    )
+    if custom_end is not None:
+        end_start = custom_end
+        while end_start > last_layer_idx and body[end_start - 1].strip().startswith("M106"):
+            end_start -= 1
+    else:
+        last_motion = -1
+        for i, ln in enumerate(body):
+            if _MOTION_RE.match(ln) and _parse_params(ln) and any(
+                axis in _parse_params(ln) for axis in ("X", "Y", "E")
+            ):
+                last_motion = i
+        if last_motion < 0:
+            raise GcodeFormatError(f"{source or 'gcode'}: no motion commands in body")
+        end_start = last_motion + 1
+    end_lines = [ln for ln in body[end_start:] if ln.strip()]
+    body = body[:end_start]
+    if not any(_MOTION_RE.match(ln) for ln in body):
         raise GcodeFormatError(f"{source or 'gcode'}: no motion commands in body")
-    end_lines = [ln for ln in body[last_motion + 1 :] if ln.strip()]
-    body = body[: last_motion + 1]
 
     # Split the body into layer chunks on each ;LAYER_CHANGE marker.
     chunks: list[list[str]] = []
@@ -201,6 +222,36 @@ def parse_gcode(text: str, source: str = "") -> ParsedGcode:
             layers[-1].lines.extend(chunk)
         else:
             layers.append(Layer(z=z, lines=chunk))
+
+    # Orca emits next-layer fan changes (M106) right after `; stop printing object`
+    # at the tail of the previous layer, immediately before `;LAYER_CHANGE`. Move
+    # those trailing M106 commands into the next layer so they do not affect other
+    # parts still printing the current layer (especially Layer 0 bed adhesion).
+    for idx in range(len(layers) - 1):
+        cur_lines = layers[idx].lines
+        last_mot = max(
+            (i for i, ln in enumerate(cur_lines) if _MOTION_RE.match(ln)),
+            default=-1,
+        )
+        if last_mot < 0:
+            continue
+        kept = cur_lines[: last_mot + 1]
+        carry_m106: list[str] = []
+        for ln in cur_lines[last_mot + 1 :]:
+            if ln.split(";", 1)[0].strip().startswith("M106"):
+                carry_m106.append(ln)
+            else:
+                kept.append(ln)
+        if carry_m106:
+            layers[idx].lines = kept
+            next_lines = layers[idx + 1].lines
+            insert_at = next(
+                (i for i, ln in enumerate(next_lines) if _MOTION_RE.match(ln)),
+                len(next_lines),
+            )
+            layers[idx + 1].lines = (
+                next_lines[:insert_at] + carry_m106 + next_lines[insert_at:]
+            )
 
     footprint, _ = _scan_footprint_and_mode(body)
 
@@ -233,9 +284,26 @@ def parse_gcode(text: str, source: str = "") -> ParsedGcode:
     )
 
 
-def translate_xy(line: str, dx: float, dy: float) -> str:
-    """Translate the X/Y parameters of a G0/G1 line by (dx, dy).
+def _fmt_coord(value: float) -> str:
+    text = f"{value:.3f}".rstrip("0").rstrip(".")
+    if text in ("", "-", "-0"):
+        return "0"
+    return text
 
+
+def translate_xy(
+    line: str,
+    dx: float,
+    dy: float,
+    *,
+    rotated: bool = False,
+    footprint: tuple[float, float, float, float] | None = None,
+) -> str:
+    """Translate (and optionally 90-degree CCW rotate) X/Y of a G0/G1 line.
+
+    When ``rotated`` is True, coordinates are rotated 90 degrees CCW within
+    ``footprint`` ``(min_x, min_y, max_x, max_y)`` before applying ``(dx, dy)``:
+    ``x' = min_x + (max_y - y) + dx``, ``y' = min_y + (x - min_x) + dy``.
     Z, E, F and all non-motion commands are left untouched; G2/G3 arcs are not
     part of the constrained grammar and raise :class:`GcodeFormatError`.
     """
@@ -245,29 +313,71 @@ def translate_xy(line: str, dx: float, dy: float) -> str:
     if not re.match(r"^\s*G[01]\b", line):
         return line
 
-    def repl(match: re.Match[str]) -> str:
+    code, sep, comment = line.partition(";")
+
+    if not rotated:
+        def repl(match: re.Match[str]) -> str:
+            axis = match.group(1)
+            value = float(match.group(2)) + (dx if axis == "X" else dy)
+            return f"{axis}{_fmt_coord(value)}"
+
+        new_code = _XY_PARAM_RE.sub(repl, code)
+        return f"{new_code}{sep}{comment}" if sep else new_code
+
+    min_x, min_y, _max_x, max_y = footprint or (0.0, 0.0, 0.0, 0.0)
+    params = _parse_params(code)
+    has_x = "X" in params
+    has_y = "Y" in params
+    if not has_x and not has_y:
+        return line
+
+    new_x = min_x + (max_y - params["Y"]) + dx if has_y else None
+    new_y = min_y + (params["X"] - min_x) + dy if has_x else None
+
+    def repl_rot(match: re.Match[str]) -> str:
         axis = match.group(1)
-        value = float(match.group(2)) + (dx if axis == "X" else dy)
-        text = f"{value:.3f}".rstrip("0").rstrip(".")
-        if text in ("", "-", "-0"):
-            text = "0"
-        return f"{axis}{text}"
+        if has_x and has_y:
+            return f"X{_fmt_coord(new_x)}" if axis == "X" else f"Y{_fmt_coord(new_y)}"  # type: ignore[arg-type]
+        if axis == "X":
+            return f"Y{_fmt_coord(new_y)}"  # type: ignore[arg-type]
+        return f"X{_fmt_coord(new_x)}"  # type: ignore[arg-type]
 
-    return _XY_PARAM_RE.sub(repl, line)
+    new_code = _XY_PARAM_RE.sub(repl_rot, code)
+    return f"{new_code}{sep}{comment}" if sep else new_code
 
 
-def translate_layer(layer: Layer, dx: float, dy: float) -> list[str]:
-    """Return the layer's lines with X/Y translated by (dx, dy)."""
+def translate_layer(
+    layer: Layer,
+    dx: float,
+    dy: float,
+    *,
+    rotated: bool = False,
+    footprint: tuple[float, float, float, float] | None = None,
+) -> list[str]:
+    """Return the layer's lines with X/Y translated (and optionally rotated)."""
 
-    return [translate_xy(ln, dx, dy) for ln in layer.lines]
+    return [
+        translate_xy(ln, dx, dy, rotated=rotated, footprint=footprint)
+        for ln in layer.lines
+    ]
+
+
+def first_xy_index(lines: list[str]) -> int | None:
+    """Index of the first motion line with an X or Y coordinate, if any."""
+
+    for idx, ln in enumerate(lines):
+        if _MOTION_RE.match(ln):
+            params = _parse_params(ln)
+            if "X" in params or "Y" in params:
+                return idx
+    return None
 
 
 def first_xy(lines: list[str]) -> tuple[float, float] | None:
     """First X/Y target of a (already translated) line list, if any."""
 
-    for ln in lines:
-        if _MOTION_RE.match(ln):
-            params = _parse_params(ln)
-            if "X" in params or "Y" in params:
-                return (params.get("X", 0.0), params.get("Y", 0.0))
-    return None
+    idx = first_xy_index(lines)
+    if idx is None:
+        return None
+    params = _parse_params(lines[idx])
+    return (params.get("X", 0.0), params.get("Y", 0.0))

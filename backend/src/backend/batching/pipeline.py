@@ -23,7 +23,7 @@ from pathlib import Path
 from .gcode import ParsedGcode, parse_gcode
 from .merge import PlacedPart, merge_parts
 from .packing import Placement, Rect, pack_into_plates
-from .slicer import slice_stl
+from .slicer import normalize_printer_name, slice_stl
 
 # Slicer callable: (stl_path, output_dir) -> path to produced G-code.
 Slicer = Callable[[Path, Path], Path]
@@ -35,22 +35,28 @@ class BuildPlate:
 
     width: float = 250.0
     height: float = 250.0
+    max_z: float = 250.0
 
 
 # Plate size per printer (FR-03 build-volume analogue). Unknown printers fall
 # back to the generic 250x250 SDP profile.
 PRINTER_PLATES: dict[str, BuildPlate] = {
-    "prusa-mk4": BuildPlate(250.0, 210.0),
-    "bambu-x1c": BuildPlate(256.0, 256.0),
-    "bambu-p1s": BuildPlate(256.0, 256.0),
+    "prusa-mk4": BuildPlate(250.0, 210.0, 250.0),
+    "prusa-core-one": BuildPlate(250.0, 220.0, 270.0),
+    "prusa-core-one+": BuildPlate(250.0, 220.0, 270.0),
+    "prusa-core-one-plus": BuildPlate(250.0, 220.0, 270.0),
+    "bambu-x1c": BuildPlate(256.0, 256.0, 256.0),
+    "bambu-p1s": BuildPlate(256.0, 256.0, 256.0),
+    "bambu-h2d": BuildPlate(350.0, 320.0, 325.0),
+    "bambu-h2d-pro": BuildPlate(350.0, 320.0, 325.0),
 }
-DEFAULT_PLATE = BuildPlate(250.0, 250.0)
+DEFAULT_PLATE = BuildPlate(250.0, 250.0, 250.0)
 
 
 def plate_for_printer(printer: str) -> BuildPlate:
     """The build plate of a known printer, or the generic 250x250 default."""
 
-    return PRINTER_PLATES.get(printer, DEFAULT_PLATE)
+    return PRINTER_PLATES.get(normalize_printer_name(printer), DEFAULT_PLATE)
 
 
 @dataclass
@@ -75,7 +81,7 @@ class PrintJob:
     def compatibility_key(self) -> tuple[str, str, str]:
         """FR-05: jobs may share a plate only with same printer, material, profile."""
 
-        return (self.printer, self.material, self.profile)
+        return (normalize_printer_name(self.printer), self.material, self.profile)
 
 
 @dataclass
@@ -91,7 +97,10 @@ class PlacedJob:
         """Absolute plate coords of this part's printed footprint."""
 
         min_x, min_y, max_x, max_y = self.parsed.footprint or (0.0, 0.0, 0.0, 0.0)
-        return (self.placement.x, self.placement.y, self.placement.x + (max_x - min_x), self.placement.y + (max_y - min_y))
+        w, h = max_x - min_x, max_y - min_y
+        if self.placement.rotated:
+            w, h = h, w
+        return (self.placement.x, self.placement.y, self.placement.x + w, self.placement.y + h)
 
 
 @dataclass
@@ -126,10 +135,21 @@ class Batch:
 def _resolve_gcode(job: PrintJob, slicer: Slicer | None, workdir: Path | None) -> Path:
     if job.gcode_path is not None:
         return job.gcode_path
+    printer_key = normalize_printer_name(job.printer).replace("+", "-plus")
+    out_dir = (workdir or Path(".batch-cache")) / printer_key / job.profile / job.name
+    if out_dir.is_dir():
+        cached = sorted(out_dir.glob("*.gcode"), key=lambda p: p.stat().st_mtime)
+        if cached:
+            job.gcode_path = cached[-1]
+            return job.gcode_path
     if slicer is not None:
-        out_dir = (workdir or Path(".batch-cache")) / job.name
-        return Path(slicer(job.source, out_dir))
-    return slice_stl(job.source, (workdir or Path(".batch-cache")) / job.name, profile=job.profile)
+        produced = Path(slicer(job.source, out_dir))
+    else:
+        produced = slice_stl(
+            job.source, out_dir, profile=job.profile, printer=job.printer
+        )
+    job.gcode_path = produced
+    return produced
 
 
 def plan_batches(
@@ -174,7 +194,7 @@ def plan_batches(
             for placement in placements:
                 job, pg = parsed[placement.index]
                 items.append(PlacedJob(job=job, parsed=pg, placement=placement))
-                # translate so the footprint's min corner lands on the placement
+                # translate (and rotate if packed rotated) so the footprint's min corner lands on the placement
                 fp = pg.footprint or (0.0, 0.0, 0.0, 0.0)
                 parts.append(
                     PlacedPart(
@@ -183,6 +203,7 @@ def plan_batches(
                         parsed=pg,
                         dx=placement.x - fp[0],
                         dy=placement.y - fp[1],
+                        rotated=placement.rotated,
                     )
                 )
             gcode = merge_parts(parts)

@@ -52,6 +52,7 @@ def _placed_parts(
                 generate_gcode(stl),
                 dx=placement.x - fp[0],
                 dy=placement.y - fp[1],
+                rotated=placement.rotated,
             )
         )
     return parts, placements
@@ -59,11 +60,13 @@ def _placed_parts(
 
 def _translated_footprints(parts, placements) -> list[tuple[float, float, float, float]]:
     out = []
-    for part, placement in zip(parts, placements):
+    for part, _placement in zip(parts, placements):
         min_x, min_y, max_x, max_y = part.parsed.footprint
-        out.append(
-            (min_x + part.dx, min_y + part.dy, max_x + part.dx, max_y + part.dy)
-        )
+        w, h = max_x - min_x, max_y - min_y
+        if part.rotated:
+            w, h = h, w
+        x0, y0 = min_x + part.dx, min_y + part.dy
+        out.append((x0, y0, x0 + w, y0 + h))
     return out
 
 
@@ -127,3 +130,13 @@ def test_merge_different_layer_counts_ok_on_same_grid(tmp_path: Path) -> None:
     assert "M486 T2" in merged
     reparsed = parse_gcode(merged, source="merged")
     assert len(reparsed.layers) == 20
+
+
+def test_merge_rotates_gcode_when_placement_is_rotated(tmp_path: Path) -> None:
+    # 40x60 box (+ 3mm skirt -> 46x66) on a 100x50 plate only fits when rotated to 66x46
+    parts, placements = _placed_parts(tmp_path, [(40, 60, 4)], plate=(100.0, 50.0), margin=0.0)
+    assert placements[0].rotated
+    merged = merge_parts(parts)
+    reparsed = parse_gcode(merged, source="merged-rotated")
+    assert reparsed.footprint == pytest.approx((0.0, 0.0, 66.0, 46.0), abs=1e-3)
+    assert not any(ln.startswith("M486 S") for ln in reparsed.start_lines)

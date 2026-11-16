@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .gcode import ParsedGcode, first_xy, parse_gcode, translate_layer
+from .gcode import ParsedGcode, first_xy, first_xy_index, parse_gcode, translate_layer
 
 _Z_KEY_EPS = 1e-6
 
@@ -29,17 +29,27 @@ class IncompatibleLayersError(ValueError):
 
 @dataclass
 class PlacedPart:
-    """A parsed job plus its packed offset on the plate."""
+    """A parsed job plus its packed offset and rotation on the plate."""
 
     index: int  # M486 object id
     name: str
     parsed: ParsedGcode
     dx: float
     dy: float
+    rotated: bool = False
 
 
-def load_part(index: int, name: str, gcode_text: str, dx: float, dy: float) -> PlacedPart:
-    return PlacedPart(index=index, name=name, parsed=parse_gcode(gcode_text, source=name), dx=dx, dy=dy)
+def load_part(
+    index: int, name: str, gcode_text: str, dx: float, dy: float, *, rotated: bool = False
+) -> PlacedPart:
+    return PlacedPart(
+        index=index,
+        name=name,
+        parsed=parse_gcode(gcode_text, source=name),
+        dx=dx,
+        dy=dy,
+        rotated=rotated,
+    )
 
 
 def _layer_grid(layers_zs: list[list[float]]) -> list[float]:
@@ -96,12 +106,22 @@ def merge_parts(
             layer = next((l for l in part.parsed.layers if abs(l.z - z) <= _Z_KEY_EPS), None)
             if layer is None:
                 continue
-            out.append(f"M486 S{part.index} ; {part.name}")
-            translated = translate_layer(layer, part.dx, part.dy)
+            translated = translate_layer(
+                layer,
+                part.dx,
+                part.dy,
+                rotated=part.rotated,
+                footprint=part.parsed.footprint,
+            )
             target = first_xy(translated)
+            split_idx = first_xy_index(translated)
+            if split_idx is None:
+                split_idx = len(translated)
+            out.extend(translated[:split_idx])
+            out.append(f"M486 S{part.index} ; {part.name}")
             if target is not None:
                 out.append(f"G1 X{target[0]:.3f} Y{target[1]:.3f} F{travel_feedrate:.0f} ; travel to {part.name}")
-            out.extend(translated)
+            out.extend(translated[split_idx:])
         out.append("")
 
     out.extend(parts[0].parsed.end_lines)

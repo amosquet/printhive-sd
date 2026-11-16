@@ -75,7 +75,7 @@ def generate_gcode(stl_path: str | Path, layer_height: float = LAYER_HEIGHT) -> 
         lines.append(f"G1 Z{z}")
         lines.append("G1 E.8 F1800")
 
-        if k == 0:
+        if k == 0 and (max_x - min_x) <= 200.0 and (max_y - min_y) <= 200.0:
             s = SKIRT_MARGIN
             lines += [";TYPE:Skirt", ";WIDTH:0.45"]
             _ring(

@@ -25,6 +25,32 @@ DEFAULT_MACOS_BUNDLE = Path("/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSli
 # FR-05 profiles pinned in the repo: backend/profiles/<profile>.process.json
 PROFILES = ("draft", "standard", "high_strength")
 MACHINE_PRESET = "printhive_mk4.machine.json"
+MACHINE_PRESETS: dict[str, str] = {
+    "prusa-mk4": "printhive_mk4.machine.json",
+    "prusa-core-one": "printhive_core_one_plus.machine.json",
+    "prusa-core-one+": "printhive_core_one_plus.machine.json",
+    "prusa-core-one-plus": "printhive_core_one_plus.machine.json",
+    "bambu-x1c": "printhive_bambu_x1c.machine.json",
+    "bambu-p1s": "printhive_bambu_x1c.machine.json",
+    "bambu-h2d": "printhive_h2d_pro.machine.json",
+    "bambu-h2d-pro": "printhive_h2d_pro.machine.json",
+}
+
+
+def normalize_printer_name(printer: str) -> str:
+    """Canonical printer key (e.g. 'Prusa Core One+' -> 'prusa-core-one+')."""
+
+    key = "-".join(printer.strip().lower().replace("_", "-").split())
+    if key.startswith("bambu-lab-"):
+        key = "bambu-" + key.removeprefix("bambu-lab-")
+    return key
+
+
+def machine_preset_for_printer(printer: str = "prusa-mk4") -> str:
+    """Machine preset filename in ``backend/profiles/`` for ``printer``."""
+
+    key = normalize_printer_name(printer)
+    return MACHINE_PRESETS.get(key, MACHINE_PRESET)
 
 
 def default_profiles_dir() -> Path:
@@ -33,13 +59,14 @@ def default_profiles_dir() -> Path:
     return Path(__file__).resolve().parents[3] / "profiles"
 
 
-def default_settings(profile: str = "standard") -> tuple[str, str]:
-    """(datadir, settings) pointing at the pinned presets for a FR-05 profile."""
+def default_settings(profile: str = "standard", printer: str = "prusa-mk4") -> tuple[str, str]:
+    """(datadir, settings) pointing at the pinned presets for a FR-05 profile and printer."""
 
     profiles_dir = default_profiles_dir()
     if profile not in PROFILES:
         raise ValueError(f"unknown profile {profile!r}; expected one of {PROFILES}")
-    settings = f"{profiles_dir / MACHINE_PRESET};{profiles_dir / (profile + '.process.json')}"
+    machine = machine_preset_for_printer(printer)
+    settings = f"{profiles_dir / machine};{profiles_dir / (profile + '.process.json')}"
     return str(profiles_dir), settings
 
 
@@ -74,14 +101,16 @@ def slice_stl(
     settings: str | Path | None = None,
     datadir: str | Path | None = None,
     profile: str = "standard",
+    printer: str = "prusa-mk4",
     timeout_s: float = 600.0,
 ) -> Path:
     """Slice one STL with the Orca Slicer CLI and return the produced G-code path.
 
     ``profile`` selects one of the pinned FR-05 profiles (draft / standard /
-    high_strength) from ``backend/profiles/``; ``settings``/``datadir`` override
-    the preset bundle (env: ``PRINTHIVE_ORCA_SETTINGS`` / ``PRINTHIVE_ORCA_DATADIR``)
-    for custom setups.
+    high_strength) and ``printer`` selects the target machine preset from
+    ``backend/profiles/``; ``settings``/``datadir`` override the preset bundle
+    (env: ``PRINTHIVE_ORCA_SETTINGS`` / ``PRINTHIVE_ORCA_DATADIR``) for custom
+    setups.
     """
 
     binary = binary or find_orca_slicer()
@@ -94,11 +123,11 @@ def slice_stl(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if settings is None and datadir is None:
-        datadir, settings = default_settings(profile)
+        datadir, settings = default_settings(profile, printer=printer)
     datadir = datadir or os.environ.get("PRINTHIVE_ORCA_DATADIR")
     settings = settings or os.environ.get("PRINTHIVE_ORCA_SETTINGS")
 
-    cmd = [binary, "--slice", "0", "--outputdir", str(output_dir)]
+    cmd = [binary, "--allow-rotations", "--slice", "0", "--outputdir", str(output_dir)]
     if datadir:
         cmd += ["--datadir", str(datadir)]
     if settings:
