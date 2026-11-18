@@ -8,9 +8,20 @@ import { PROFILES, MATERIALS, defaultPartSettings, resolvePartSettings, partScal
 const queuePage = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
 const submitPage = await readFile(new URL("../dist/submit/index.html", import.meta.url), "utf8");
 
-test("the public queue links to the print intake", () => {
-	assert.match(queuePage, /Print queue/);
-	assert.match(queuePage, /href="\/submit"[^>]*>Submit a print/);
+test("the queue home matches the final design S0 (hero, live queue, printers)", () => {
+	assert.match(queuePage, /HIVE/);
+	assert.match(queuePage, /3d printing/);
+	assert.match(queuePage, /href="\/submit"/);
+	assert.match(queuePage, /Submit a print/);
+	assert.match(queuePage, /Available printers/);
+	assert.match(queuePage, /id="queue-banner"/);
+	assert.match(queuePage, /id="queue-main"/);
+	assert.match(queuePage, /id="my-print"/);
+	assert.match(queuePage, /Updates every 15 seconds\./);
+	assert.match(queuePage, /Bambu H2D Pro/);
+	assert.match(queuePage, /Prusa Core ONE\+/);
+	assert.match(queuePage, />Printing</);
+	assert.match(queuePage, />Queued</);
 });
 
 test("the intake requires a title and accepts multiple STL or OBJ files", () => {

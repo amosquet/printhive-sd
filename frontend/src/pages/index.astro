@@ -1,86 +1,239 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 
-const queue = [
-	{ title: "Robot arm bracket", owner: "A. Student", time: "2 hr 14 min", state: "Printing", progress: 68 },
-	{ title: "Camera mount", owner: "J. Student", time: "1 hr 45 min", state: "Next", progress: 0 },
-	{ title: "Enclosure lid", owner: "M. Student", time: "54 min", state: "Waiting", progress: 0 },
+const printers = [
+	{
+		lab: "Bambu Lab",
+		name: "Bambu H2D Pro",
+		status: "available",
+		specs: [
+			["Build volume", "350 × 320 × 325 mm"],
+			["Kinematics", "Dual-Nozzle CoreXY"],
+			["Chamber", "Active heating (up to 65°C)"],
+			["Max hotend temp", "350°C"],
+		],
+	},
+	{
+		lab: "Prusa Research",
+		name: "Prusa Core ONE+",
+		status: "printing",
+		specs: [
+			["Build volume", "250 × 220 × 270 mm"],
+			["Kinematics", "Fully Enclosed CoreXY"],
+			["Chamber", "Active temperature regulation"],
+			["Max hotend temp", "300°C"],
+		],
+	},
 ];
+
+const hexPoints = (cx: number, cy: number) =>
+	`${cx},${cy - 34} ${cx + 29.4},${cy - 17} ${cx + 29.4},${cy + 17} ${cx},${cy + 34} ${cx - 29.4},${cy + 17} ${cx - 29.4},${cy - 17}`;
+const hexCenters = [[120, 40], [61, 91], [120, 91], [179, 91], [90, 142], [149, 142]];
 ---
 
-<BaseLayout title="Print queue | PrintHive" description="View the public PrintHive queue and submit a 3D print.">
-	<main class="queue-page">
-		<section class="hero" aria-labelledby="page-title">
-			<div>
-				<p class="eyebrow">PURDUE MAKER SPACE</p>
-				<h1 id="page-title"><span>HIVE</span><br />3d printing</h1>
-				<p class="intro">Check the live queue, then submit your model when you are ready.</p>
-				<div class="actions">
-					<a class="button primary" href="/submit">Submit a print <span aria-hidden="true">→</span></a>
-					<button class="button" type="button" disabled>Join the waitlist</button>
+<BaseLayout title="Queue | PrintHive" description="Live PrintHive queue — see what is printing, then submit your own 3D print.">
+	<main class="page">
+		<section class="hero" aria-label="Welcome">
+			<div class="hero-stack">
+				<h1><span class="hive">HIVE</span><br /><span class="sub">3d printing</span></h1>
+				<div class="hero-actions">
+					<a class="button primary" href="/submit">Submit a print</a>
+					<a class="button" href="#printers">Available printers</a>
 				</div>
 			</div>
-			<div class="honeycomb" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+			<svg class="honeycomb" viewBox="0 0 240 190" aria-hidden="true" focusable="false">
+				{hexCenters.map(([cx, cy]) => <polygon points={hexPoints(cx, cy)} fill="#efc84a" stroke="#252720" stroke-width="2" stroke-linejoin="round" />)}
+			</svg>
 		</section>
 
-		<section class="queue" aria-labelledby="queue-title">
-			<div class="queue-heading"><div><p class="eyebrow">PUBLIC VIEW</p><h2 id="queue-title">Print queue</h2></div><p>Updated just now</p></div>
-			<ol>
-				{queue.map((job, index) => (
-					<li class:list={[{ active: index === 0 }]}>
-						<div class="position">{String(index + 1).padStart(2, "0")}</div>
-						<div class="job"><strong>{job.title}</strong><span>{job.owner}</span></div>
-						<div class="duration"><span>ESTIMATED TIME</span><strong>{job.time}</strong></div>
-						<div class="state">
-							<span class:list={["state-label", { printing: index === 0 }]}>{job.state}</span>
-							{index === 0 && <div class="progress" aria-label={`${job.progress}% complete`}><span style={`width:${job.progress}%`}></span></div>}
+		<div id="queue-banner" hidden></div>
+
+		<div class="queue-layout" id="queue-layout">
+			<div class="queue-main" id="queue-main">
+				<section class="queue-section" aria-label="Currently printing">
+					<div class="section-head"><h2>Printing</h2><span class="count-chip">1</span></div>
+					<div class="job-list">
+						<div class="job-row">
+							<div class="job-badges"><span class="badge badge-amber">Printing</span></div>
+							<div class="job-info">
+								<p class="job-title">Bracket v2</p>
+								<p class="job-meta">Prusa Core ONE+ · PLA white · 0.2 mm layers · Est. ready ~4:55 PM</p>
+							</div>
+							<div class="job-side">
+								<div class="job-progress">
+									<div class="progress-track" role="img" aria-label="62% complete"><span style="width:62%"></span></div>
+									<span class="job-pct">62%</span>
+								</div>
+							</div>
 						</div>
-					</li>
+					</div>
+				</section>
+				<section class="queue-section" aria-label="Queued prints">
+					<div class="section-head"><h2>Queued</h2><span class="count-chip">2</span></div>
+					<div class="job-list">
+						<div class="job-row">
+							<div class="job-badges"><span class="badge badge-green">Starts ~2:30 PM</span></div>
+							<div class="job-info">
+								<p class="job-title">Cable clip ×2</p>
+								<p class="job-meta">Bambu H2D Pro · PLA black · Plate open for other PLA black parts</p>
+								<div class="why-here"><p>Why here? Other PLA black parts can still join this build plate (FR-11), and it finishes before the 6:00 PM shift ends (FR-10).</p></div>
+							</div>
+							<div class="job-side"><a class="details-link" href="#">Details ›</a></div>
+						</div>
+						<div class="job-row">
+							<div class="job-badges"><span class="badge badge-gray">Waiting · overnight</span></div>
+							<div class="job-info">
+								<p class="job-title">Enclosure lid (est. 9 h 10 m)</p>
+								<p class="job-meta">Prusa Core ONE+ · PETG black · Submitted 1 h ago</p>
+								<div class="why-here"><p>Why later? Too long to finish within today’s staffed shift, so it waits for the overnight window (FR-10). Waiting time raises its priority (FR-17).</p></div>
+							</div>
+							<div class="job-side"><a class="details-link" href="#">Details ›</a></div>
+						</div>
+					</div>
+				</section>
+				<p class="queue-note">Updates every 15 seconds.</p>
+			</div>
+			<aside class="my-print" id="my-print" hidden aria-label="My print status"></aside>
+		</div>
+
+		<section class="printers" id="printers" aria-labelledby="printers-title">
+			<h2 id="printers-title">Available printers</h2>
+			<div class="printer-grid">
+				{printers.map((printer) => (
+					<article class="printer-card">
+						<div class="printer-top">
+							<div>
+								<p class="printer-lab">{printer.lab}</p>
+								<h3 class="printer-name">{printer.name}</h3>
+							</div>
+							<span class:list={["badge", printer.status === "available" ? "badge-green" : "badge-amber"]}>
+								● {printer.status === "available" ? "Available" : "Printing"}
+							</span>
+						</div>
+						<dl class="printer-specs">
+							{printer.specs.map(([label, value]) => (
+								<div><dt>{label}</dt><dd>{value}</dd></div>
+							))}
+						</dl>
+					</article>
 				))}
-			</ol>
+			</div>
 		</section>
 	</main>
+	<script>
+		import "../scripts/queue-page.ts";
+	</script>
 </BaseLayout>
 
-<style>
-	.queue-page { max-width: 1180px; margin: 0 auto; padding: 54px clamp(22px,4vw,48px) 70px; }
-	.hero { display: grid; grid-template-columns: 1fr 310px; align-items: center; min-height: 315px; padding: 42px 54px; border: 1px solid var(--line); background: var(--surface); }
-	.eyebrow { margin: 0 0 12px; color: #777970; font-size: 9px; font-weight: 750; letter-spacing: 1.2px; }
-	h1 { margin: 0; font-size: clamp(39px,6vw,68px); line-height: .86; font-weight: 350; letter-spacing: -2px; }
-	h1 span { font-weight: 800; }
-	.intro { max-width: 470px; margin: 25px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
-	.actions { display: flex; gap: 10px; margin-top: 27px; }
-	.honeycomb { display: grid; grid-template-columns: repeat(3,68px); gap: 5px; justify-self: center; transform: rotate(30deg); }
-	.honeycomb span { width: 68px; height: 59px; background: var(--yellow); clip-path: polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); }
-	.honeycomb span:nth-child(4) { grid-column: 2; }
-	.queue { margin-top: 28px; border: 1px solid var(--line); background: var(--surface); }
-	.queue-heading { display: flex; align-items: end; justify-content: space-between; padding: 28px 30px 20px; border-bottom: 1px solid var(--line); }
-	.queue-heading h2 { margin: 0; font-size: 22px; font-weight: 600; }
-	.queue-heading p { margin: 0; color: #8a8b84; font-size: 10px; }
-	.queue ol { margin: 0; padding: 0; list-style: none; }
-	.queue li { display: grid; grid-template-columns: 58px minmax(170px,1fr) 150px 180px; min-height: 83px; align-items: center; padding: 0 28px; border-bottom: 1px solid #e5e4da; }
-	.queue li:last-child { border-bottom: 0; }
-	.queue li.active { background: #fffdf2; }
-	.position { color: #a0a198; font-size: 12px; }
-	.job, .duration, .state { display: flex; flex-direction: column; gap: 6px; }
-	.job strong, .duration strong { font-size: 12px; font-weight: 650; }
-	.job span, .duration span { color: #878880; font-size: 9px; }
-	.state { align-items: end; }
-	.state-label { color: #6e706a; font-size: 10px; }
-	.state-label.printing { color: var(--green); font-weight: 700; }
-	.progress { width: 142px; height: 3px; background: #e6e3d6; }
-	.progress span { display: block; height: 100%; background: var(--yellow); }
-	@media (max-width: 760px) {
-		.hero { grid-template-columns: 1fr; gap: 45px; padding: 36px 28px; }
-		.honeycomb { grid-template-columns: repeat(3,44px); }
-		.honeycomb span { width: 44px; height: 38px; }
-		.queue li { grid-template-columns: 35px 1fr auto; gap: 12px; padding: 15px 18px; }
-		.duration { display: none; }
-		.state { align-items: end; }
-		.progress { width: 75px; }
+<style is:global>
+	.page { max-width: 1280px; margin: 0 auto; padding: 28px 48px 36px; display: flex; flex-direction: column; gap: 22px; }
+	[hidden] { display: none !important; }
+
+	/* Hero — Final Design S0 */
+	.hero { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+	.hero h1 { margin: 0; font-size: 60px; line-height: 64px; letter-spacing: -0.02em; }
+	.hero .hive { font-weight: 700; color: var(--ink); }
+	.hero .sub { font-weight: 500; color: var(--sage); }
+	.hero-actions { display: flex; gap: 12px; padding-top: 18px; }
+	.honeycomb { width: 240px; height: 190px; flex-shrink: 0; }
+
+	/* Banner (S5 green / S6 neutral / S7 green / canceled red) */
+	.banner { border-radius: 6px; padding: 14px 18px; font-size: 14px; font-weight: 600; }
+	.banner-green { background: var(--green-soft); border: 1px solid var(--green); color: var(--green); }
+	.banner-neutral { background: var(--gray-soft); border: 1px solid var(--ink); color: var(--ink); }
+	.banner-red { background: var(--red-soft); border: 1px solid var(--red); color: var(--red); }
+
+	/* Queue layout: list + my-print inspector */
+	.queue-layout { display: flex; gap: 28px; align-items: flex-start; }
+	.queue-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+	.queue-section { display: flex; flex-direction: column; gap: 10px; }
+	.section-head { display: flex; align-items: center; gap: 10px; }
+	.section-head h2 { margin: 0; font-size: 19px; font-weight: 500; color: var(--ink); }
+	.count-chip { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 500; color: var(--ink); }
+	.job-list { display: flex; flex-direction: column; gap: 10px; }
+	.job-row { display: flex; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 18px; }
+	.job-row.yours { background: var(--amber-soft); border: 2px solid var(--ink); }
+	.job-row.ready { background: var(--green-soft); border: 2px solid var(--green); }
+	.job-badges { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 130px; flex-shrink: 0; }
+	.badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+	.badge-green { background: var(--green-soft); color: var(--green); }
+	.badge-yellow { background: var(--yellow); color: var(--ink); }
+	.badge-amber { background: var(--amber-soft); color: var(--amber-ink); }
+	.badge-gray { background: var(--gray-soft); color: var(--muted); }
+	.job-info { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+	.job-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+	.job-meta { margin: 0; font-size: 12px; color: var(--muted); }
+	.job-meta.green { color: var(--green); }
+	.why-here { background: var(--purple-soft); border-radius: 4px; padding: 6px 10px; margin-top: 4px; }
+	.why-here p { margin: 0; font-size: 12px; color: var(--purple-ink); }
+	.job-side { display: flex; align-items: center; flex-shrink: 0; }
+	.job-progress { display: flex; align-items: center; gap: 10px; }
+	.progress-track { width: 110px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+	.progress-track span { display: block; height: 100%; background: var(--yellow); border-radius: 4px; }
+	.job-pct { font-size: 13px; font-weight: 600; color: var(--ink); }
+	.details-link { font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+	.queue-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+
+	/* My print inspector (S5/S6/S7 right panel) */
+	.my-print { width: 470px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--ink); border-radius: 8px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+	.panel-label { margin: 0; font-size: 11px; font-weight: 600; color: var(--muted); }
+	.panel-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+	.panel-title { margin: 0; font-size: 24px; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+	.steps { display: flex; align-items: flex-start; margin: 0; padding: 0; list-style: none; }
+	.step { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+	.step-circle { width: 28px; height: 28px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: var(--surface); border: 1px solid var(--line-soft); color: var(--ink); }
+	.step-label { font-size: 11px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+	.step.done .step-circle { background: var(--ink); border-color: var(--ink); color: #fff; }
+	.step.done .step-label { color: var(--ink); }
+	.step.current .step-circle { background: var(--yellow); border-color: var(--ink); }
+	.step.current .step-label { color: var(--ink); font-weight: 700; }
+	.step.canceled .step-circle { background: var(--red-soft); border-color: var(--red); color: var(--red); }
+	.step-connector { width: 34px; height: 2px; background: var(--line-soft); margin-top: 13px; flex-shrink: 0; list-style: none; }
+	.step-connector.done { background: var(--ink); }
+	.why-box { background: var(--purple-soft); border: 1px solid var(--purple-line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+	.slice-box { background: var(--gray-soft); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+	.pickup-box { background: var(--green-soft); border: 1px solid var(--green-line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+	.box-title { margin: 0; font-size: 14px; font-weight: 600; }
+	.why-box .box-title, .why-box p:not(.box-title) { color: var(--purple-ink); }
+	.slice-box .box-title, .slice-box p:not(.box-title) { color: var(--ink); }
+	.pickup-box .box-title, .pickup-box p { color: var(--green); }
+	.why-box p:not(.box-title), .slice-box p:not(.box-title), .pickup-box p:not(.box-title) { margin: 0; font-size: 12px; line-height: 17px; }
+	.panel-actions { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+	.panel-note { margin: 0; font-size: 12px; color: var(--muted); }
+	.camera { position: relative; width: 100%; max-width: 426px; height: 200px; background: var(--dark); border-radius: 6px; overflow: hidden; }
+	.camera-label { position: absolute; left: 12px; top: 10px; font-size: 12px; font-weight: 600; color: var(--surface); }
+	.camera-live { position: absolute; right: 12px; top: 10px; font-size: 11px; font-weight: 700; color: var(--live); }
+	.camera-rect-a { position: absolute; left: 93px; top: 110px; width: 240px; height: 70px; background: #3b3e34; }
+	.camera-rect-b { position: absolute; left: 150px; top: 82px; width: 40px; height: 30px; background: #2b2d26; border: 1px solid var(--yellow); }
+	.telemetry { display: flex; gap: 10px; }
+	.tele-card { flex: 1 1 0; min-width: 0; background: var(--gray-soft); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+	.tele-card span { font-size: 11px; color: var(--muted); }
+	.tele-card strong { font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+
+	/* Available printers (S0) */
+	.printers { margin-top: 14px; display: flex; flex-direction: column; gap: 12px; }
+	.printers h2 { margin: 0; font-size: 19px; font-weight: 500; color: var(--ink); }
+	.printer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+	.printer-card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 24px; }
+	.printer-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+	.printer-lab { margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+	.printer-name { margin: 0; font-size: 20px; font-weight: 500; color: var(--ink); }
+	.printer-specs { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; background: var(--gray-soft); border: 1px solid var(--line); border-radius: 6px; padding: 16px; }
+	.printer-specs dt { margin: 0 0 3px; font-size: 10px; font-weight: 600; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+	.printer-specs dd { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
+
+	@media (max-width: 1100px) {
+		.queue-layout { flex-direction: column; }
+		.my-print { width: 100%; max-width: 470px; }
 	}
-	@media (max-width: 440px) {
-		.actions { align-items: stretch; flex-direction: column; }
-		.queue-heading { align-items: start; flex-direction: column; gap: 8px; }
+	@media (max-width: 760px) {
+		.page { padding: 22px 20px 30px; }
+		.hero { flex-direction: column; align-items: flex-start; }
+		.hero h1 { font-size: 44px; line-height: 48px; }
+		.honeycomb { width: 180px; height: 142px; }
+		.job-row { flex-wrap: wrap; }
+		.job-badges { width: auto; flex-direction: row; flex-wrap: wrap; }
+		.telemetry { flex-wrap: wrap; }
+		.printer-specs { grid-template-columns: 1fr; }
 	}
 </style>

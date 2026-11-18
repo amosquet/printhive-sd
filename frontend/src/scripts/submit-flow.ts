@@ -11,7 +11,8 @@
 import { IDENTITY_ROTATION } from '@time-estimator/browser-preview/pose';
 import { validateFiles, MAX_BATCH_SIZE, formatMiB } from './file-validation.js';
 import { PrintPreview } from './print-preview';
-import { PREVIEW_PRINTERS, selectPreviewPrinter, fitsPreviewPrinter } from './preview-profile';
+import { PREVIEW_PRINTERS, selectPreviewPrinter, fitsPreviewPrinter, applyPrintTimeAllowance } from './preview-profile';
+import { saveMyPrint, type MyPrint } from './queue-page';
 import {
   MATERIALS,
   PROFILES,
@@ -433,13 +434,68 @@ function renderReview() {
 <div class="review-parts-list" aria-label="Parts to submit">${cards}</div>`;
 }
 
+function formatEstTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '—';
+  const minutes = Math.round(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (!hours) return `${minutes} min`;
+  return `${hours} h${remainder ? ` ${remainder} m` : ''}`;
+}
+
+function estReadyClock(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '—';
+  const ready = new Date(Date.now() + seconds * 1000);
+  let h = ready.getHours() % 12;
+  if (h === 0) h = 12;
+  return `~${h}:${String(ready.getMinutes()).padStart(2, '0')} ${ready.getHours() >= 12 ? 'PM' : 'AM'}`;
+}
+
+function newPrintRef(): string {
+  const bytes = new Uint8Array(2);
+  crypto.getRandomValues(bytes);
+  return `#${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+}
+
+/** Persist the submitted print so the queue home can show it as "MY PRINT" (Figma S5). */
+function rememberSubmittedPrint(): void {
+  const first = state.files[0];
+  const part = resolvePartSettings(state.global, first ? state.partOptions.get(first.file) : undefined, MATERIALS);
+  const profile = getProfile(part.profile);
+  const dims = first ? scaledDims(first, part) : null;
+  const printer = dims && dims.length ? selectPreviewPrinter(dims) : PREVIEW_PRINTERS[0];
+  const seconds = preview?.estimatedSeconds;
+  const withAllowance = seconds !== undefined ? applyPrintTimeAllowance(seconds, 30) : NaN;
+  const print: MyPrint = {
+    title: state.title.trim(),
+    ref: newPrintRef(),
+    email: state.email.trim().toLowerCase(),
+    profileName: profile.name,
+    material: part.material,
+    color: part.color,
+    printer: printer.name,
+    estTime: formatEstTime(withAllowance),
+    status: 'queued',
+    progress: 0,
+    queuePosition: 1,
+    startedAt: '',
+    estReady: estReadyClock(withAllowance),
+    finishedAt: '',
+    cubby: '',
+    submittedAt: Date.now(),
+  };
+  saveMyPrint(print);
+}
+
 function renderReceipt() {
   const files = state.files;
   const totalCopies = files.reduce((sum, entry) => sum + (state.partOptions.get(entry.file)?.copies ?? 1), 0);
+  rememberSubmittedPrint();
   $('#step-receipt').innerHTML = `<div class="receipt">
   <h2>Submission ready</h2>
   <p>This prototype validated <strong>${esc(state.title.trim())}</strong> (${files.length} ${files.length === 1 ? 'file' : 'files'}, ${totalCopies} ${totalCopies === 1 ? 'copy' : 'copies'}) locally — no files were uploaded and no email was sent.</p>
   <p>In the deployed PrintHive we would email <strong>${esc(state.email.trim().toLowerCase())}</strong> a confirmation link; confirm within 24 hours to join the queue.</p>
+  <p>Back on the queue page your print appears in the <strong>MY PRINT</strong> panel (queued → printing → ready for pickup).</p>
   <a href="/" class="button primary">Back to queue</a>
   <button type="button" class="text-button" id="another-button">Submit another print</button>
 </div>`;

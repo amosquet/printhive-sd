@@ -103,6 +103,11 @@ export class PrintPreview {
     error?: string;
   } | null = null;
   private preview: FastSupportPreview | null = null;
+
+  /** Last sliced estimate in seconds (model + supports), when available. */
+  get estimatedSeconds(): number | undefined {
+    return this.preview?.estimatedSeconds;
+  }
   private tab: 'model' | 'layers' = 'model';
   private reading = false;
   private orienting = false;
