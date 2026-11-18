@@ -12,15 +12,17 @@ permissions:
   issues: write # post comments / labels
   pull-requests: write # post review comments
 
-concurrency:
-  group: pr-agent-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   pr_agent_job:
     name: AI Code Audit
-    if: github.event.sender.type != 'Bot' && (github.event_name != 'issue_comment' || github.event.issue.pull_request)
+    if: >-
+      github.event.sender.type != 'Bot' &&
+      (github.event_name != 'issue_comment' ||
+      (github.event.issue.pull_request && (startsWith(github.event.comment.body, '/') || contains(github.event.comment.body, '/ask'))))
     runs-on: ubuntu-latest
+    concurrency:
+      group: pr-agent-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Resolve PR branches
         id: pr_branches
@@ -59,3 +61,8 @@ jobs:
           github_action_config.auto_describe: "true"
           github_action_config.auto_improve: "true"
           github_action_config.pr_actions: '["opened", "reopened", "synchronize", "ready_for_review"]'
+
+          # Publish review findings & code suggestions as inline diff comments
+          # (also in .pr_agent.toml, which PR-Agent reads from master once merged)
+          pr_reviewer.inline_key_issues: "true"
+          pr_code_suggestions.committable_code_suggestions: "true"
