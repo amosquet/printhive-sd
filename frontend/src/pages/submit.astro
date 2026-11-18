@@ -1,0 +1,166 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Submit a print | PrintHive" description="Enter a part title and validate your STL or OBJ files.">
+	<main class="submit-page">
+		<div class="heading-row">
+			<div><p class="eyebrow">NEW PRINT REQUEST</p><h1>Submit a print</h1><p>Start with a title and your 3D model files.</p></div>
+			<a class="back-link" href="/">← Back to queue</a>
+		</div>
+
+		<form class="intake" id="intake-form" novalidate>
+			<section aria-labelledby="details-title">
+				<div class="section-title"><span>01</span><div><p>REQUIRED</p><h2 id="details-title">Part details</h2></div></div>
+				<label class="text-field" for="part-title"><span>Part title</span><input id="part-title" name="part-title" type="text" maxlength="80" placeholder="e.g. Phone stand" required aria-describedby="title-message" /></label>
+				<p class="field-message" id="title-message" aria-live="polite"></p>
+
+				<label class="drop-zone" id="drop-zone" for="model-file" tabindex="0">
+					<input id="model-file" name="model-file" type="file" accept=".stl,.obj" multiple />
+					<span class="upload-icon" aria-hidden="true">↑</span>
+					<strong id="file-title">Upload 3D model files</strong>
+					<span id="file-detail">Drag and drop here, or <u>browse files</u></span>
+					<small>STL or OBJ · maximum 50 MB per file</small>
+				</label>
+				<p class="field-message error" id="file-message" role="alert" aria-live="assertive"></p>
+				<div class="file-list" id="file-list" aria-live="polite"></div>
+
+				<div class="success-note" id="success-note" hidden><span aria-hidden="true">✓</span><p><strong>Files are valid.</strong><br />This request is ready for the print-settings handoff.</p></div>
+				<button class="button primary continue-button" id="continue-button" type="button" disabled>Continue to print settings <span aria-hidden="true">→</span></button>
+				<p class="handoff-message" id="handoff-message" role="status" aria-live="polite"></p>
+			</section>
+
+			<aside aria-labelledby="requirements-title">
+				<p class="eyebrow">UPLOAD CHECKLIST</p>
+				<h2 id="requirements-title">Before you continue</h2>
+				<ol>
+					<li><span>01</span><div><strong>Name the part</strong><p>Use a short title that staff can recognize.</p></div></li>
+					<li><span>02</span><div><strong>Use STL or OBJ</strong><p>Other model and G-code formats are not accepted.</p></div></li>
+					<li><span>03</span><div><strong>Keep files under 50 MB</strong><p>Each selected model is checked before handoff.</p></div></li>
+				</ol>
+				<p class="privacy">Files remain in this browser and are not uploaded by this prototype.</p>
+			</aside>
+		</form>
+	</main>
+</BaseLayout>
+
+<style>
+	.submit-page { max-width: 1050px; margin: 0 auto; padding: 58px clamp(20px,4vw,44px) 76px; }
+	.heading-row { display: flex; align-items: end; justify-content: space-between; margin-bottom: 28px; }
+	.eyebrow { margin: 0 0 9px; color: #777970; font-size: 9px; font-weight: 750; letter-spacing: 1.15px; }
+	h1 { margin: 0; font-size: clamp(34px,5vw,50px); font-weight: 550; letter-spacing: -1.5px; }
+	.heading-row p:last-child { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+	.back-link { padding-bottom: 4px; border-bottom: 1px solid var(--ink); font-size: 11px; }
+	.intake { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(260px,.8fr); border: 1px solid var(--line); background: var(--surface); }
+	.intake > section { padding: 38px 42px 40px; }
+	.section-title { display: flex; align-items: center; gap: 13px; margin-bottom: 26px; }
+	.section-title > span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--yellow); font-size: 10px; font-weight: 800; }
+	.section-title p { margin: 0 0 3px; color: #92938b; font-size: 8px; font-weight: 750; letter-spacing: 1px; }
+	.section-title h2 { margin: 0; font-size: 19px; font-weight: 650; }
+	.text-field { display: flex; flex-direction: column; gap: 8px; }
+	.text-field span { font-size: 11px; font-weight: 700; }
+	.text-field input { width: 100%; height: 44px; padding: 0 13px; border: 1px solid #cfcfc5; border-radius: 2px; background: #fff; color: var(--ink); font-size: 12px; }
+	.field-message { min-height: 18px; margin: 5px 0 11px; color: var(--red); font-size: 10px; }
+	.drop-zone { display: flex; min-height: 180px; flex-direction: column; align-items: center; justify-content: center; padding: 22px; border: 1px dashed #9fa097; border-radius: 2px; background: #fbfaf2; cursor: pointer; text-align: center; transition: border-color .15s ease, background .15s ease; }
+	.drop-zone:hover, .drop-zone.is-dragging { border-color: var(--yellow-dark); background: #fff9dd; }
+	.drop-zone input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); clip-path: inset(50%); white-space: nowrap; }
+	.upload-icon { display: grid; width: 34px; height: 34px; place-items: center; margin-bottom: 11px; border: 1px solid #d2d0c3; border-radius: 50%; background: #fff; color: #7e7f77; font-size: 17px; }
+	.drop-zone strong { font-size: 13px; }
+	.drop-zone > span:not(.upload-icon) { margin-top: 6px; color: #74766f; font-size: 11px; }
+	.drop-zone small { margin-top: 15px; color: #999a92; font-size: 9px; }
+	.file-list { display: grid; gap: 7px; }
+	:global(.file-row) { display: flex; justify-content: space-between; gap: 16px; padding: 9px 11px; border: 1px solid #deddd3; background: #fff; font-size: 10px; }
+	:global(.file-row span) { flex: 0 0 auto; color: #777970; }
+	.success-note { display: flex; gap: 10px; margin-top: 14px; padding: 12px; border-left: 3px solid var(--green); background: var(--green-soft); }
+	.success-note[hidden] { display: none; }
+	.success-note > span { color: var(--green); font-weight: 800; }
+	.success-note p { margin: 0; color: #405b49; font-size: 10px; line-height: 1.45; }
+	.continue-button { width: 100%; justify-content: space-between; margin-top: 17px; }
+	.handoff-message { min-height: 16px; margin: 8px 0 0; color: var(--green); text-align: center; font-size: 10px; }
+	aside { padding: 38px 30px; border-left: 1px solid var(--line); background: #f0efe5; }
+	aside h2 { margin: 0 0 31px; font-size: 26px; font-weight: 550; line-height: 1.05; }
+	aside ol { margin: 0; padding: 0; list-style: none; }
+	aside li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding: 16px 0; border-top: 1px solid #d5d4c8; }
+	aside li > span { color: var(--yellow-dark); font-size: 9px; font-weight: 800; }
+	aside strong { font-size: 11px; }
+	aside li p { margin: 5px 0 0; color: #777970; font-size: 10px; line-height: 1.5; }
+	.privacy { margin: 31px 0 0; padding-top: 17px; border-top: 1px solid #d5d4c8; color: #85877f; font-size: 9px; line-height: 1.5; }
+	@media (max-width: 720px) {
+		.heading-row { align-items: start; flex-direction: column; gap: 18px; }
+		.intake { grid-template-columns: 1fr; }
+		.intake > section { padding: 30px 23px; }
+		aside { padding: 30px 23px; border-top: 1px solid var(--line); border-left: 0; }
+	}
+</style>
+
+<script>
+	import { canContinue, validateFiles } from "../scripts/file-validation.js";
+	const form = document.querySelector<HTMLFormElement>("#intake-form");
+	const titleInput = document.querySelector<HTMLInputElement>("#part-title");
+	const titleMessage = document.querySelector<HTMLElement>("#title-message");
+	const fileInput = document.querySelector<HTMLInputElement>("#model-file");
+	const dropZone = document.querySelector<HTMLElement>("#drop-zone");
+	const fileTitle = document.querySelector<HTMLElement>("#file-title");
+	const fileDetail = document.querySelector<HTMLElement>("#file-detail");
+	const fileMessage = document.querySelector<HTMLElement>("#file-message");
+	const fileList = document.querySelector<HTMLElement>("#file-list");
+	const successNote = document.querySelector<HTMLElement>("#success-note");
+	const continueButton = document.querySelector<HTMLButtonElement>("#continue-button");
+	const handoffMessage = document.querySelector<HTMLElement>("#handoff-message");
+	let validFiles: File[] = [];
+
+	function resetFilePresentation() {
+		if (fileTitle) fileTitle.textContent = "Upload 3D model files";
+		if (fileDetail) fileDetail.innerHTML = 'Drag and drop here, or <u>browse files</u>';
+		if (fileList) fileList.innerHTML = "";
+		if (successNote) successNote.hidden = true;
+	}
+	function updateReadiness() {
+		if (continueButton && titleInput) continueButton.disabled = !canContinue(titleInput.value, validFiles);
+	}
+	function safeName(name: string) { return name.replace(/[<>&"']/g, ""); }
+	function showFiles(files: File[]) {
+		if (!fileInput || !fileMessage || !fileList || !successNote || !fileTitle || !fileDetail) return;
+		fileMessage.textContent = "";
+		if (handoffMessage) handoffMessage.textContent = "";
+		resetFilePresentation();
+		const result = validateFiles(files);
+		if (!result.ok) {
+			validFiles = [];
+			fileInput.value = "";
+			fileMessage.textContent = result.error;
+			updateReadiness();
+			return;
+		}
+		validFiles = files;
+		fileTitle.textContent = files.length === 1 ? files[0].name : `${files.length} model files selected`;
+		fileDetail.textContent = "Valid format and size";
+		fileList.innerHTML = files.map((file) => `<div class="file-row"><strong>${safeName(file.name)}</strong><span>${(file.size / (1024 * 1024)).toFixed(2)} MB</span></div>`).join("");
+		successNote.hidden = false;
+		updateReadiness();
+	}
+
+	titleInput?.addEventListener("input", () => {
+		if (titleMessage) titleMessage.textContent = titleInput.value.trim() ? "" : "Enter a part title to continue.";
+		updateReadiness();
+	});
+	titleInput?.addEventListener("blur", () => { if (titleMessage && !titleInput.value.trim()) titleMessage.textContent = "Enter a part title to continue."; });
+	fileInput?.addEventListener("change", () => showFiles(Array.from(fileInput.files ?? [])));
+	dropZone?.addEventListener("keydown", (event) => {
+		if ((event.key === "Enter" || event.key === " ") && fileInput) { event.preventDefault(); fileInput.click(); }
+	});
+	dropZone?.addEventListener("dragover", (event) => { event.preventDefault(); dropZone.classList.add("is-dragging"); });
+	dropZone?.addEventListener("dragleave", () => dropZone.classList.remove("is-dragging"));
+	dropZone?.addEventListener("drop", (event) => {
+		event.preventDefault();
+		dropZone.classList.remove("is-dragging");
+		const files = Array.from(event.dataTransfer?.files ?? []);
+		if (!files.length || !fileInput) return;
+		const transfer = new DataTransfer();
+		files.forEach((file) => transfer.items.add(file));
+		fileInput.files = transfer.files;
+		showFiles(files);
+	});
+	continueButton?.addEventListener("click", () => { if (handoffMessage) handoffMessage.textContent = "Validated — the print-settings step can continue from here."; });
+	form?.addEventListener("submit", (event) => event.preventDefault());
+</script>
