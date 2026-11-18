@@ -1,249 +1,86 @@
 ---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const queue = [
+	{ title: "Robot arm bracket", owner: "A. Student", time: "2 hr 14 min", state: "Printing", progress: 68 },
+	{ title: "Camera mount", owner: "J. Student", time: "1 hr 45 min", state: "Next", progress: 0 },
+	{ title: "Enclosure lid", owner: "M. Student", time: "54 min", state: "Waiting", progress: 0 },
+];
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<meta name="description" content="Prepare a 3D print for the PrintHive queue." />
-		<title>New print | PrintHive</title>
-	</head>
-	<body>
-		<header class="topbar">
-			<a class="brand" href="/" aria-label="PrintHive home">
-				<span class="brand-mark" aria-hidden="true">P</span>
-				<span>PrintHive</span>
-			</a>
-			<div class="topbar-meta"><span class="status-dot"></span> Student portal <span class="meta-divider"></span> Fall term</div>
-		</header>
-
-		<main>
-			<div class="page-heading">
-				<div>
-					<p class="eyebrow">PRINT QUEUE <span> / </span> NEW JOB</p>
-					<h1>Start with your model.</h1>
-					<p class="intro">Add a 3D file and choose a print profile. You can review the job before it enters the queue.</p>
+<BaseLayout title="Print queue | PrintHive" description="View the public PrintHive queue and submit a 3D print.">
+	<main class="queue-page">
+		<section class="hero" aria-labelledby="page-title">
+			<div>
+				<p class="eyebrow">PURDUE MAKER SPACE</p>
+				<h1 id="page-title"><span>HIVE</span><br />3d printing</h1>
+				<p class="intro">Check the live queue, then submit your model when you are ready.</p>
+				<div class="actions">
+					<a class="button primary" href="/submit">Submit a print <span aria-hidden="true">→</span></a>
+					<button class="button" type="button" disabled>Join the waitlist</button>
 				</div>
-				<div class="step-indicator"><span>01</span><span class="step-rule"></span><span>02</span><span class="step-label">FILE DETAILS</span></div>
 			</div>
+			<div class="honeycomb" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+		</section>
 
-			<div class="workspace">
-				<section class="form-section" aria-labelledby="model-heading">
-					<div class="section-heading">
-						<div><span class="section-number">01</span><h2 id="model-heading">Your model</h2></div>
-						<span class="required-note">REQUIRED</span>
-					</div>
-
-					<label class="drop-zone" for="model-file" id="drop-zone">
-						<input id="model-file" name="model-file" type="file" accept=".stl,.obj" />
-						<span class="upload-mark" aria-hidden="true">+</span>
-						<span class="drop-title" id="file-title">Drop your model here</span>
-						<span class="drop-subtitle" id="file-detail">or <span class="browse-link">browse files</span></span>
-						<span class="file-rules">STL or OBJ <span>·</span> up to 50 MB</span>
-					</label>
-					<p class="validation-message" id="validation-message" role="status" aria-live="polite"></p>
-
-					<div class="profile-field">
-						<label for="print-profile">Print profile <span class="required-star">*</span></label>
-						<p class="field-hint">Choose a starting point for your print settings.</p>
-						<div class="select-wrap">
-							<select id="print-profile" name="print-profile" required>
-								<option value="" selected disabled>Select a profile</option>
-								<option value="draft">Draft</option>
-								<option value="standard">Standard</option>
-								<option value="high-strength">High Strength</option>
-							</select>
+		<section class="queue" aria-labelledby="queue-title">
+			<div class="queue-heading"><div><p class="eyebrow">PUBLIC VIEW</p><h2 id="queue-title">Print queue</h2></div><p>Updated just now</p></div>
+			<ol>
+				{queue.map((job, index) => (
+					<li class:list={[{ active: index === 0 }]}>
+						<div class="position">{String(index + 1).padStart(2, "0")}</div>
+						<div class="job"><strong>{job.title}</strong><span>{job.owner}</span></div>
+						<div class="duration"><span>ESTIMATED TIME</span><strong>{job.time}</strong></div>
+						<div class="state">
+							<span class:list={["state-label", { printing: index === 0 }]}>{job.state}</span>
+							{index === 0 && <div class="progress" aria-label={`${job.progress}% complete`}><span style={`width:${job.progress}%`}></span></div>}
 						</div>
-					</div>
-
-					<div class="service-note" role="note">
-						<span class="note-mark" aria-hidden="true">i</span>
-						<p><strong>Upload service not connected</strong><br />Your file stays in this browser. The upload action will be available when the PrintHive service is connected.</p>
-					</div>
-					<button class="continue-button" type="button" disabled>Continue to review <span aria-hidden="true">&#8594;</span></button>
-					<p class="privacy-note">Files are not sent or stored by this prototype.</p>
-				</section>
-
-				<aside class="requirements" aria-labelledby="requirements-heading">
-					<div class="aside-topline"><span class="aside-kicker">BEFORE YOU UPLOAD</span><span class="aside-index">01 — 03</span></div>
-					<h2 id="requirements-heading">A few things<br />to know.</h2>
-					<ol>
-						<li><span class="requirement-index">01</span><div><strong>Supported files</strong><p>Choose an STL or OBJ model. Other formats are not accepted yet.</p></div></li>
-						<li><span class="requirement-index">02</span><div><strong>File size</strong><p>Keep your model at or below 50 MB for this intake.</p></div></li>
-						<li><span class="requirement-index">03</span><div><strong>Print profile</strong><p>Draft, Standard, or High Strength. Your selection can be adjusted later.</p></div></li>
-					</ol>
-					<div class="aside-footer"><span class="footer-dot"></span> DESIGNED FOR THE PRINT FLOOR</div>
-				</aside>
-			</div>
-		</main>
-
-		<footer><span>PrintHive <span class="footer-separator">/</span> Student print portal</span><span>Prototype interface <span class="footer-separator">·</span> No files uploaded</span></footer>
-	</body>
-</html>
+					</li>
+				))}
+			</ol>
+		</section>
+	</main>
+</BaseLayout>
 
 <style>
-	:root {
-		font-family: "Avenir Next", "Segoe UI", sans-serif;
-		color: #202b2a;
-		background: #f5f6f1;
-		font-synthesis: none;
-		text-rendering: optimizeLegibility;
-		--ink: #202b2a;
-		--muted: #687371;
-		--line: #dce2dc;
-		--green: #176f5b;
-		--lime: #d8ed87;
-	}
-
-	* { box-sizing: border-box; }
-	body { margin: 0; min-width: 320px; }
-	a { color: inherit; text-decoration: none; }
-	.topbar { height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 7.1%; background: #fff; border-bottom: 1px solid #e8ece7; }
-	.brand { display: inline-flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 750; letter-spacing: 0; }
-	.brand-mark { display: grid; width: 29px; height: 29px; place-items: center; border-radius: 8px 8px 8px 2px; color: #fff; background: var(--green); font-size: 16px; }
-	.topbar-meta { display: flex; align-items: center; gap: 9px; color: #596562; font-size: 12px; }
-	.status-dot, .footer-dot { width: 7px; height: 7px; border-radius: 50%; background: #89aa48; }
-	.meta-divider { height: 14px; margin: 0 5px; border-left: 1px solid #d6ddd7; }
-	main { max-width: 1120px; margin: 0 auto; padding: 64px 32px 74px; }
-	.page-heading { display: flex; align-items: end; justify-content: space-between; margin-bottom: 38px; }
-	.eyebrow, .aside-kicker { margin: 0 0 12px; color: var(--green); font-size: 10px; font-weight: 750; letter-spacing: 1.1px; }
-	.eyebrow span { padding: 0 5px; color: #a4afaa; }
-	h1, h2, p { margin-top: 0; }
-	h1 { margin-bottom: 10px; font-size: clamp(32px, 4vw, 46px); line-height: 1.1; font-weight: 650; letter-spacing: 0; }
-	.intro { max-width: 560px; margin-bottom: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
-	.step-indicator { display: flex; align-items: center; gap: 9px; padding-bottom: 4px; color: #a3ada8; font-size: 11px; }
-	.step-indicator span:first-child { color: var(--green); font-weight: 700; }
-	.step-rule { width: 32px; border-top: 1px solid #cbd4ce; }
-	.step-label { margin-left: 6px; color: #687371; font-size: 9px; font-weight: 700; letter-spacing: .8px; }
-	.workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(275px, .75fr); min-height: 555px; background: #fff; border: 1px solid #e2e7e1; }
-	.form-section { padding: 35px 40px 31px; }
-	.section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
-	.section-heading > div { display: flex; align-items: center; gap: 12px; }
-	.section-number { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; background: #e8f1e8; color: var(--green); font-size: 11px; font-weight: 700; }
-	.section-heading h2 { margin: 0; font-size: 17px; font-weight: 650; }
-	.required-note { color: #8a9691; font-size: 9px; font-weight: 700; letter-spacing: .8px; }
-	.drop-zone { display: flex; min-height: 185px; flex-direction: column; align-items: center; justify-content: center; border: 1px dashed #aebdb4; border-radius: 4px; background: #fbfcf9; cursor: pointer; transition: background .16s ease, border-color .16s ease; }
-	.drop-zone:hover, .drop-zone.is-dragging { border-color: var(--green); background: #f3f8f2; }
-	.drop-zone input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
-	.drop-zone:focus-within { outline: 2px solid #438d75; outline-offset: 3px; }
-	.upload-mark { display: grid; width: 35px; height: 35px; place-items: center; margin-bottom: 10px; border: 1px solid #dce6dc; border-radius: 50%; color: var(--green); background: #fff; font-size: 23px; font-weight: 300; line-height: 1; }
-	.drop-title { color: #293431; font-size: 14px; font-weight: 650; }
-	.drop-subtitle { margin-top: 6px; color: #78837e; font-size: 12px; }
-	.browse-link { color: var(--green); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
-	.file-rules { margin-top: 15px; color: #8b9691; font-size: 10px; }
-	.file-rules span { margin: 0 5px; color: #bcc6bf; }
-	.validation-message { min-height: 19px; margin: 7px 0 13px; color: #a13d31; font-size: 12px; }
-	.validation-message:empty { min-height: 19px; }
-	.profile-field label { color: #293431; font-size: 13px; font-weight: 650; }
-	.required-star { color: #ad5144; }
-	.field-hint { margin: 5px 0 10px; color: #7d8983; font-size: 11px; }
-	.select-wrap { position: relative; }
-	.select-wrap::after { position: absolute; top: 13px; right: 15px; color: #687371; content: "⌄"; pointer-events: none; }
-	select { width: 100%; height: 44px; padding: 0 38px 0 13px; appearance: none; border: 1px solid #d9e0da; border-radius: 3px; color: #34403c; background: #fff; font: inherit; font-size: 12px; }
-	select:focus { border-color: var(--green); outline: 2px solid #d6e8df; }
-	.service-note { display: flex; gap: 10px; margin-top: 22px; padding: 12px 13px; border-left: 2px solid #a7bf72; background: #f6f8ef; }
-	.note-mark { display: grid; width: 17px; height: 17px; flex: 0 0 17px; place-items: center; border: 1px solid #8da655; border-radius: 50%; color: #5d762b; font-family: Georgia, serif; font-size: 11px; font-style: italic; }
-	.service-note p { margin: 0; color: #687260; font-size: 10px; line-height: 1.55; }
-	.service-note strong { color: #475334; font-size: 11px; }
-	.continue-button { display: flex; width: 100%; height: 45px; align-items: center; justify-content: space-between; margin-top: 16px; padding: 0 16px; border: 0; border-radius: 3px; color: #fff; background: var(--green); font: inherit; font-size: 12px; font-weight: 650; }
-	.continue-button:disabled { background: #a9b5ad; cursor: not-allowed; }
-	.continue-button span { font-size: 17px; }
-	.privacy-note { margin: 9px 0 0; color: #929c96; text-align: center; font-size: 10px; }
-	.requirements { position: relative; overflow: hidden; padding: 35px 30px 28px; color: #f2f4ec; background: #263d38; }
-	.requirements::before { position: absolute; top: -55px; right: -78px; width: 210px; height: 210px; border: 1px solid rgb(216 237 135 / 18%); border-radius: 50%; content: ""; }
-	.aside-topline { display: flex; justify-content: space-between; }
-	.aside-kicker { margin: 1px 0 0; color: var(--lime); font-size: 9px; }
-	.aside-index { color: #a9b9ae; font-size: 9px; }
-	.requirements h2 { position: relative; margin: 49px 0 30px; font-size: 27px; line-height: 1.14; font-weight: 550; }
-	.requirements ol { margin: 0; padding: 0; list-style: none; }
-	.requirements li { display: grid; grid-template-columns: 27px 1fr; gap: 10px; padding: 16px 0; border-top: 1px solid rgb(235 242 232 / 17%); }
-	.requirement-index { padding-top: 2px; color: var(--lime); font-size: 9px; font-weight: 700; }
-	.requirements li strong { color: #f5f7f1; font-size: 12px; font-weight: 650; }
-	.requirements li p { margin: 5px 0 0; color: #b7c3ba; font-size: 10px; line-height: 1.55; }
-	.aside-footer { position: absolute; right: 30px; bottom: 28px; left: 30px; display: flex; align-items: center; gap: 8px; padding-top: 16px; border-top: 1px solid rgb(235 242 232 / 17%); color: #aebbb2; font-size: 8px; font-weight: 700; letter-spacing: .8px; }
-	.footer-dot { width: 6px; height: 6px; background: var(--lime); }
-	footer { display: flex; max-width: 1120px; justify-content: space-between; margin: 0 auto; padding: 0 32px 27px; color: #7e8984; font-size: 10px; }
-	.footer-separator { padding: 0 5px; color: #b5beb8; }
+	.queue-page { max-width: 1180px; margin: 0 auto; padding: 54px clamp(22px,4vw,48px) 70px; }
+	.hero { display: grid; grid-template-columns: 1fr 310px; align-items: center; min-height: 315px; padding: 42px 54px; border: 1px solid var(--line); background: var(--surface); }
+	.eyebrow { margin: 0 0 12px; color: #777970; font-size: 9px; font-weight: 750; letter-spacing: 1.2px; }
+	h1 { margin: 0; font-size: clamp(39px,6vw,68px); line-height: .86; font-weight: 350; letter-spacing: -2px; }
+	h1 span { font-weight: 800; }
+	.intro { max-width: 470px; margin: 25px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+	.actions { display: flex; gap: 10px; margin-top: 27px; }
+	.honeycomb { display: grid; grid-template-columns: repeat(3,68px); gap: 5px; justify-self: center; transform: rotate(30deg); }
+	.honeycomb span { width: 68px; height: 59px; background: var(--yellow); clip-path: polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); }
+	.honeycomb span:nth-child(4) { grid-column: 2; }
+	.queue { margin-top: 28px; border: 1px solid var(--line); background: var(--surface); }
+	.queue-heading { display: flex; align-items: end; justify-content: space-between; padding: 28px 30px 20px; border-bottom: 1px solid var(--line); }
+	.queue-heading h2 { margin: 0; font-size: 22px; font-weight: 600; }
+	.queue-heading p { margin: 0; color: #8a8b84; font-size: 10px; }
+	.queue ol { margin: 0; padding: 0; list-style: none; }
+	.queue li { display: grid; grid-template-columns: 58px minmax(170px,1fr) 150px 180px; min-height: 83px; align-items: center; padding: 0 28px; border-bottom: 1px solid #e5e4da; }
+	.queue li:last-child { border-bottom: 0; }
+	.queue li.active { background: #fffdf2; }
+	.position { color: #a0a198; font-size: 12px; }
+	.job, .duration, .state { display: flex; flex-direction: column; gap: 6px; }
+	.job strong, .duration strong { font-size: 12px; font-weight: 650; }
+	.job span, .duration span { color: #878880; font-size: 9px; }
+	.state { align-items: end; }
+	.state-label { color: #6e706a; font-size: 10px; }
+	.state-label.printing { color: var(--green); font-weight: 700; }
+	.progress { width: 142px; height: 3px; background: #e6e3d6; }
+	.progress span { display: block; height: 100%; background: var(--yellow); }
 	@media (max-width: 760px) {
-		.topbar { height: 62px; padding: 0 22px; }
-		main { padding: 43px 20px 46px; }
-		.page-heading { align-items: start; gap: 15px; margin-bottom: 27px; }
-		.step-indicator { display: none; }
-		.workspace { grid-template-columns: 1fr; }
-		.form-section { padding: 27px 22px 24px; }
-		.requirements { min-height: 390px; padding: 28px 22px 65px; }
-		.requirements h2 { margin: 27px 0 20px; font-size: 24px; }
-		.requirements h2 br { display: none; }
-		.aside-footer { right: 22px; bottom: 22px; left: 22px; }
-		footer { gap: 10px; padding: 0 20px 20px; font-size: 9px; }
+		.hero { grid-template-columns: 1fr; gap: 45px; padding: 36px 28px; }
+		.honeycomb { grid-template-columns: repeat(3,44px); }
+		.honeycomb span { width: 44px; height: 38px; }
+		.queue li { grid-template-columns: 35px 1fr auto; gap: 12px; padding: 15px 18px; }
+		.duration { display: none; }
+		.state { align-items: end; }
+		.progress { width: 75px; }
 	}
-	@media (max-width: 430px) {
-		.topbar-meta { font-size: 10px; }
-		main { padding-right: 14px; padding-left: 14px; }
-		h1 { font-size: 32px; }
-		.intro { font-size: 13px; }
-		.form-section { padding-right: 17px; padding-left: 17px; }
-		footer { flex-direction: column; padding-right: 14px; padding-left: 14px; }
-	}
-	@media (prefers-reduced-motion: reduce) {
-		*, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+	@media (max-width: 440px) {
+		.actions { align-items: stretch; flex-direction: column; }
+		.queue-heading { align-items: start; flex-direction: column; gap: 8px; }
 	}
 </style>
-
-<script>
-	const fileInput = document.querySelector<HTMLInputElement>("#model-file");
-	const dropZone = document.querySelector<HTMLElement>("#drop-zone");
-	const fileTitle = document.querySelector<HTMLElement>("#file-title");
-	const fileDetail = document.querySelector<HTMLElement>("#file-detail");
-	const message = document.querySelector<HTMLElement>("#validation-message");
-	const maxFileSize = 50 * 1024 * 1024;
-	const supportedExtensions = new Set(["stl", "obj"]);
-
-	function showFile(file: File | undefined) {
-		if (!fileInput || !fileTitle || !fileDetail || !message) return;
-		message.textContent = "";
-		if (!file) {
-			fileTitle.textContent = "Drop your model here";
-			fileDetail.innerHTML = 'or <span class="browse-link">browse files</span>';
-			return;
-		}
-
-		fileTitle.textContent = "Drop your model here";
-		fileDetail.innerHTML = 'or <span class="browse-link">browse files</span>';
-		const extension = file.name.split(".").pop()?.toLowerCase();
-		if (!extension || !supportedExtensions.has(extension)) {
-			message.textContent = "Choose an STL or OBJ file.";
-			fileInput.value = "";
-			return;
-		}
-		if (file.size > maxFileSize) {
-			message.textContent = "This file is larger than 50 MB. Choose a smaller model.";
-			fileInput.value = "";
-			return;
-		}
-
-		fileTitle.textContent = file.name;
-		fileDetail.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB · ready for review`;
-	}
-
-	fileInput?.addEventListener("change", () => showFile(fileInput.files?.[0]));
-	dropZone?.addEventListener("dragover", (event) => {
-		event.preventDefault();
-		dropZone.classList.add("is-dragging");
-	});
-	dropZone?.addEventListener("dragleave", () => dropZone.classList.remove("is-dragging"));
-	dropZone?.addEventListener("drop", (event) => {
-		event.preventDefault();
-		dropZone.classList.remove("is-dragging");
-		const file = event.dataTransfer?.files[0];
-		if (file && fileInput) {
-			const transfer = new DataTransfer();
-			transfer.items.add(file);
-			fileInput.files = transfer.files;
-			showFile(file);
-		}
-	});
-</script>
