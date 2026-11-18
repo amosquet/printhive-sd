@@ -22,3 +22,6 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Provisioned checksum-pinned browser engine (see preview:runtime)
+/public/preview-engine/

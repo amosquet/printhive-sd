@@ -1,0 +1,22 @@
+# Browser preview package
+
+Source: the separate browser/ package in the time_estimator repository.
+Source commit: 3feddf30454b50175f51a092c2627d312cf9cf36.
+Package: @time-estimator/browser-preview 0.5.0 (private).
+Archive SHA-256: 0c616838ed2ff250c8aecd5d1762157cd164a0d00126e9e93270863289f781d4.
+
+Carried over unchanged from the deployed PrintHive repository so the new
+frontend can run the same checksum-pinned, source-built serial Orca browser
+engine for sliced previews (layers + generated support shapes).
+
+The reusable package includes the source-built serial Orca browser engine, native C++
+combined model/support pricing, solid support renderer, STL importer, pose/export tools,
+build identities and upstream notices. One worker request prepares model sections and
+support regions once; it does not generate support toolpaths or export G-code.
+The browser engine is built separately and does not link the native/server estimator SDK.
+The `preview:runtime` script copies the bundled, checksummed assets into
+`public/preview-engine/` (gitignored). No server slicing or cache service is introduced.
+
+To update, pack the authoritative browser/ source, use an archive filename with its content
+hash, change the dependency in package.json, and run bun install. Keep this source commit
+and archive hash synchronized. Local integration does not authorize publishing.

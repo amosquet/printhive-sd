@@ -1,166 +1,474 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import {
+	MATERIALS,
+	PROFILES,
+	SUPPORTS,
+	AVAILABLE_PRINTERS,
+	supportLabel,
+	defaultPartSettings,
+	getDefaultMaterial,
+	getDefaultColor,
+	resolveColor,
+} from "../scripts/print-settings";
+
+const materials = MATERIALS;
+const defaults = defaultPartSettings(materials);
+const defaultMaterial = getDefaultMaterial(materials);
+const defaultColor = getDefaultColor(defaultMaterial);
+const defaultColorCode = defaultMaterial.colors.find((c) => c.name === defaultColor)?.code;
 ---
 
-<BaseLayout title="Submit a print | PrintHive" description="Enter a part title and validate your STL or OBJ files.">
+<BaseLayout title="Submit a print | PrintHive" description="Submit STL or OBJ models with print settings and a sliced 3D preview.">
 	<main class="submit-page">
 		<div class="heading-row">
-			<div><p class="eyebrow">NEW PRINT REQUEST</p><h1>Submit a print</h1><p>Start with a title and your 3D model files.</p></div>
+			<div>
+				<p class="eyebrow">NEW PRINT REQUEST</p>
+				<h1>Submit a print</h1>
+				<p class="heading-sub">Add your model files, pick print settings, then review before submitting.</p>
+			</div>
 			<a class="back-link" href="/">← Back to queue</a>
 		</div>
 
-		<form class="intake" id="intake-form" novalidate>
-			<section aria-labelledby="details-title">
-				<div class="section-title"><span>01</span><div><p>REQUIRED</p><h2 id="details-title">Part details</h2></div></div>
-				<label class="text-field" for="part-title"><span>Part title</span><input id="part-title" name="part-title" type="text" maxlength="80" placeholder="e.g. Phone stand" required aria-describedby="title-message" /></label>
-				<p class="field-message" id="title-message" aria-live="polite"></p>
+		<form id="submission-form" novalidate>
+			<div class="submission-grid">
+				<div class="form-column">
+					<section id="step-details" aria-label="Step 1 of 2, part details">
+						<p class="eyebrow step-eyebrow">STEP 1 OF 2</p>
+						<fieldset class="form-section">
+							<legend>Part details</legend>
+							<label class="text-field" for="part-title">
+								<span>Project / part title</span>
+								<input id="part-title" name="part-title" type="text" maxlength="200" placeholder="e.g. Phone stand" required aria-describedby="title-message" />
+							</label>
+							<p class="field-message" id="title-message" aria-live="polite"></p>
 
-				<label class="drop-zone" id="drop-zone" for="model-file" tabindex="0">
-					<input id="model-file" name="model-file" type="file" accept=".stl,.obj" multiple />
-					<span class="upload-icon" aria-hidden="true">↑</span>
-					<strong id="file-title">Upload 3D model files</strong>
-					<span id="file-detail">Drag and drop here, or <u>browse files</u></span>
-					<small>STL or OBJ · maximum 50 MB per file</small>
-				</label>
-				<p class="field-message error" id="file-message" role="alert" aria-live="assertive"></p>
-				<div class="file-list" id="file-list" aria-live="polite"></div>
+							<label class="drop-zone" id="drop-zone" for="model-file" tabindex="0">
+								<input id="model-file" name="model-file" type="file" accept=".stl,.obj" multiple />
+								<span class="upload-icon" aria-hidden="true">↑</span>
+								<strong id="file-title">Upload 3D model files</strong>
+								<span id="file-detail">Drag and drop here, or <u>browse files</u></span>
+								<small>STL or OBJ · up to 10 files · maximum 50 MB per file</small>
+							</label>
+							<p class="field-message error" id="file-message" role="alert" aria-live="assertive"></p>
 
-				<div class="success-note" id="success-note" hidden><span aria-hidden="true">✓</span><p><strong>Files are valid.</strong><br />This request is ready for the print-settings handoff.</p></div>
-				<button class="button primary continue-button" id="continue-button" type="button" disabled>Continue to print settings <span aria-hidden="true">→</span></button>
-				<p class="handoff-message" id="handoff-message" role="status" aria-live="polite"></p>
-			</section>
+							<div class="batch-file-list" id="batch-file-list" hidden>
+								<div class="batch-file-list-header">
+									<span class="small muted" id="file-count"></span>
+									<button type="button" class="text-button" id="clear-files">Clear all</button>
+								</div>
+								<ul id="file-list"></ul>
+							</div>
 
-			<aside aria-labelledby="requirements-title">
-				<p class="eyebrow">UPLOAD CHECKLIST</p>
-				<h2 id="requirements-title">Before you continue</h2>
-				<ol>
-					<li><span>01</span><div><strong>Name the part</strong><p>Use a short title that staff can recognize.</p></div></li>
-					<li><span>02</span><div><strong>Use STL or OBJ</strong><p>Other model and G-code formats are not accepted.</p></div></li>
-					<li><span>03</span><div><strong>Keep files under 50 MB</strong><p>Each selected model is checked before handoff.</p></div></li>
-				</ol>
-				<p class="privacy">Files remain in this browser and are not uploaded by this prototype.</p>
-			</aside>
+							<fieldset class="default-settings" aria-label="Default settings">
+								<legend>Default settings</legend>
+								<p class="small muted">Used for all files unless a file has its own settings.</p>
+								<div class="field-grid part-settings-grid">
+									<label>Print profile
+										<select id="setting-profile" aria-label="Default print profile">
+											{PROFILES.map((profile) => (
+												<option value={profile.id} selected={profile.id === defaults.profile}>{profile.name} — {profile.description}</option>
+											))}
+										</select>
+									</label>
+									<label>Material
+										<select id="setting-material" aria-label="Default material">
+											{materials.map((material) => (
+												<option value={material.name} selected={material.name === defaults.material}>{material.name}</option>
+											))}
+										</select>
+									</label>
+									<div class="part-color-field">
+										<label>Filament color
+											<select id="setting-color" aria-label="Default filament color">
+												{defaultMaterial.colors.map((color) => (
+													<option value={color.name} selected={color.name === defaults.color}>{color.name}</option>
+												))}
+											</select>
+										</label>
+										<i class="swatch" id="color-swatch" aria-hidden="true" style={`background-color: ${resolveColor(defaultColor, defaultColorCode)}`}></i>
+									</div>
+									<label>Supports
+										<select id="setting-supports" aria-label="Default supports">
+											{SUPPORTS.map((support) => (
+												<option value={support} selected={support === defaults.supports}>{supportLabel(support)}</option>
+											))}
+										</select>
+									</label>
+									<label>Model units
+										<select id="setting-units" aria-label="Default model units">
+											<option value="mm" selected={defaults.units === "mm"}>Millimeters (mm)</option>
+											<option value="m" selected={defaults.units === "m"}>Meters (m)</option>
+											<option value="in" selected={defaults.units === "in"}>Inches (in)</option>
+										</select>
+									</label>
+									<label>Scale
+										<span class="percent-input">
+											<input id="setting-scale" aria-label="Default scale (%)" type="number" min="0.01" max="10000" step="any" required value={defaults.scalePercent} />
+											<span aria-hidden="true">%</span>
+										</span>
+									</label>
+								</div>
+							</fieldset>
+
+							<label class="notes-field">Notes for the operator <span class="optional">Optional</span>
+								<textarea id="operator-notes" name="notes" maxlength="5000" rows="3" placeholder="Orientation, fit, or other requirements"></textarea>
+							</label>
+						</fieldset>
+
+						<fieldset class="form-section" id="contact-section">
+							<legend>Contact</legend>
+							<label class="text-field" for="email">
+								<span>Purdue email</span>
+								<input id="email" name="email" type="email" required maxlength="254" pattern="[^@\s]+@purdue\.edu" autocomplete="email" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="you@purdue.edu" aria-describedby="email-message" />
+							</label>
+							<p class="field-message" id="email-message" aria-live="polite"></p>
+							<p class="small muted">Confirmation and updates go here. Email and notes are private; title and print settings are public. This prototype keeps files in your browser — nothing is uploaded yet.</p>
+						</fieldset>
+
+						<p class="notice error" id="form-message" role="alert" hidden></p>
+						<div class="form-actions">
+							<button class="button primary" id="review-button" type="submit">Review print</button>
+						</div>
+					</section>
+
+					<section id="step-review" hidden aria-label="Step 2 of 2, review submission">
+						<div class="review-header">
+							<div>
+								<p class="eyebrow step-eyebrow">STEP 2 OF 2</p>
+								<h2 id="review-heading">Review your print</h2>
+							</div>
+							<button type="button" class="text-button" id="edit-button">Edit settings</button>
+						</div>
+						<div id="review-content"></div>
+						<p class="notice error" id="review-message" role="alert" hidden></p>
+						<div class="upload-progress" id="upload-progress" hidden role="status">
+							<progress id="upload-progress-bar" value="0" max="100"></progress>
+							<p id="upload-progress-text"></p>
+						</div>
+						<div class="form-actions">
+							<button class="button primary" id="confirm-button" type="submit">Send confirmation email</button>
+							<button type="button" class="button secondary" id="back-button">Back to edit</button>
+							<button type="button" class="text-button" id="cancel-button" hidden>Cancel</button>
+						</div>
+						<p class="small muted">Confirm the email link within 24 hours to join the queue.</p>
+					</section>
+
+					<section id="step-receipt" hidden aria-label="Submission receipt"></section>
+				</div>
+
+				<aside class="preview-column">
+					<div class="preview-panel print-preview" id="preview-root">
+						<div class="preview-header">
+							<h2>Print preview</h2>
+							<div class="preview-tabs" role="tablist" aria-label="Preview mode">
+								<button type="button" role="tab" id="tab-model" aria-selected="true">Model</button>
+								<button type="button" role="tab" id="tab-layers" aria-selected="false" disabled>Supports</button>
+							</div>
+						</div>
+						<div class="preview-file" id="preview-file" hidden>
+							<span>Previewing</span>
+							<strong id="preview-file-name"></strong>
+						</div>
+						<div class="print-time" id="print-time" hidden aria-live="polite">
+							<span>Print time:</span>
+							<strong id="print-time-value"></strong>
+							<span class="small muted" id="print-time-printer" hidden></span>
+							<span class="small muted" id="print-time-note" hidden></span>
+							<span class="small muted" id="print-time-copies" hidden></span>
+						</div>
+						<div class="support-result" id="support-result" hidden role="status">
+							<span class="support-result-icon" aria-hidden="true">✓</span>
+							<div><strong>No supports needed</strong></div>
+						</div>
+						<div class="orientation-toolbar" id="orientation-toolbar" hidden role="group" aria-label="Model orientation">
+							<span>Orientation</span>
+							<button type="button" id="orient-auto">Auto</button>
+							<button type="button" id="orient-face" aria-pressed="false">Lay on face</button>
+							<button type="button" id="orient-reset">Reset orientation</button>
+						</div>
+						<div class="face-picker" id="face-picker" hidden>
+							<p>Click a highlighted face to place it on the bed.</p>
+							<div id="face-buttons"></div>
+						</div>
+						<div class="preview-canvas-frame" id="preview-canvas-frame">
+							<div class="preview-viewport" id="preview-viewport" role="img" aria-label="Interactive model preview">
+								<div class="preview-placeholder" id="preview-placeholder"><p id="preview-placeholder-text">Choose a file to preview.</p></div>
+								<div class="preview-loading" id="preview-loading" hidden role="status"><span>Finding an orientation…</span> <button type="button" class="text-button" id="orient-cancel">Cancel</button></div>
+							</div>
+							<div class="layer-rail" id="layer-rail" hidden>
+								<span id="layer-count-max">1</span>
+								<input type="range" id="layer-slider" aria-label="Layer" min="1" max="1" value="1" />
+								<span>1</span>
+							</div>
+						</div>
+						<div class="preview-toolbar">
+							<span>Drag to rotate · Scroll to zoom</span>
+							<button type="button" class="text-button" id="preview-reset-view" disabled>Reset view</button>
+						</div>
+						<div class="layer-controls" id="layer-controls" hidden>
+							<div class="layer-heading"><strong id="layer-heading-text"></strong></div>
+						</div>
+						<div class="printer-fit-info" id="printer-fit" hidden>
+							<span class="fit-label">Printer fit</span>
+							<div class="fit-badges" id="fit-badges"></div>
+						</div>
+						<p class="preview-bed" id="preview-bed" hidden>Bed: <strong id="preview-bed-name"></strong> · <span id="preview-bed-size"></span><span id="preview-bed-warning"></span></p>
+						<p class="small" id="preview-calculating" hidden role="status"></p>
+						<p class="small unit-warning" id="unit-warning" hidden>This file is smaller than 1 mm. Was it exported in meters? <button type="button" class="text-button" id="use-meters">Use meters</button></p>
+						<p class="small preview-message" id="preview-message" hidden role="status"><span id="preview-message-text"></span> <button type="button" class="text-button" id="preview-retry" hidden>Try again</button></p>
+						<div class="preview-summary"><span id="preview-dimensions"></span></div>
+					</div>
+				</aside>
+			</div>
 		</form>
+
+		<section class="submit-fleet-summary" aria-label="Available printers build limits">
+			<div class="fleet-summary-header">
+				<strong>Printer build volumes</strong>
+			</div>
+			<div class="fleet-chips">
+				{AVAILABLE_PRINTERS.map((printer) => (
+					<details class="fleet-chip-details">
+						<summary class="fleet-chip">
+							<div class="fleet-chip-main">
+								<span class="fleet-chip-name">{printer.name}</span>
+								<span class="fleet-chip-manufacturer small muted">{printer.manufacturer}</span>
+							</div>
+							<span class="fleet-chip-volume mono">{printer.buildVolumeFormatted}</span>
+							<span class="fleet-chip-tech small muted">{printer.technology}</span>
+							<svg class="dropdown-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+						</summary>
+						<div class="fleet-chip-content">
+							<p class="printer-description">{printer.description}</p>
+							<ul class="printer-features">
+								{printer.features.map((feature) => (
+									<li>{feature}</li>
+								))}
+							</ul>
+						</div>
+					</details>
+				))}
+			</div>
+		</section>
 	</main>
 </BaseLayout>
 
-<style>
-	.submit-page { max-width: 1050px; margin: 0 auto; padding: 58px clamp(20px,4vw,44px) 76px; }
+<style is:global>
+	[hidden] { display: none !important; }
+	.submit-page { max-width: 1180px; margin: 0 auto; padding: 54px clamp(22px,4vw,48px) 70px; }
 	.heading-row { display: flex; align-items: end; justify-content: space-between; margin-bottom: 28px; }
 	.eyebrow { margin: 0 0 9px; color: #777970; font-size: 9px; font-weight: 750; letter-spacing: 1.15px; }
-	h1 { margin: 0; font-size: clamp(34px,5vw,50px); font-weight: 550; letter-spacing: -1.5px; }
-	.heading-row p:last-child { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+	.step-eyebrow { margin-bottom: 12px; }
+	.submit-page h1 { margin: 0; font-size: clamp(34px,5vw,50px); font-weight: 550; letter-spacing: -1.5px; }
+	.heading-sub { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 	.back-link { padding-bottom: 4px; border-bottom: 1px solid var(--ink); font-size: 11px; }
-	.intake { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(260px,.8fr); border: 1px solid var(--line); background: var(--surface); }
-	.intake > section { padding: 38px 42px 40px; }
-	.section-title { display: flex; align-items: center; gap: 13px; margin-bottom: 26px; }
-	.section-title > span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--yellow); font-size: 10px; font-weight: 800; }
-	.section-title p { margin: 0 0 3px; color: #92938b; font-size: 8px; font-weight: 750; letter-spacing: 1px; }
-	.section-title h2 { margin: 0; font-size: 19px; font-weight: 650; }
-	.text-field { display: flex; flex-direction: column; gap: 8px; }
-	.text-field span { font-size: 11px; font-weight: 700; }
-	.text-field input { width: 100%; height: 44px; padding: 0 13px; border: 1px solid #cfcfc5; border-radius: 2px; background: #fff; color: var(--ink); font-size: 12px; }
-	.field-message { min-height: 18px; margin: 5px 0 11px; color: var(--red); font-size: 10px; }
-	.drop-zone { display: flex; min-height: 180px; flex-direction: column; align-items: center; justify-content: center; padding: 22px; border: 1px dashed #9fa097; border-radius: 2px; background: #fbfaf2; cursor: pointer; text-align: center; transition: border-color .15s ease, background .15s ease; }
+
+	.small { font-size: 10px; line-height: 1.6; }
+	.muted { color: var(--muted); }
+	.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; letter-spacing: .04em; }
+	.optional { float: right; font-size: 9px; color: var(--muted); font-weight: 400; }
+
+	.submission-grid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(300px,.9fr); gap: 40px; align-items: start; }
+	.form-column { min-width: 0; }
+	.form-section { border: 0; padding: 0 0 26px; margin: 0 0 26px; border-bottom: 1px solid var(--line); }
+	.form-section > legend { padding: 0; margin-bottom: 22px; font-size: 19px; font-weight: 650; letter-spacing: -.02em; }
+	.form-section label { display: block; margin-bottom: 18px; font-size: 11px; font-weight: 650; }
+	.submit-page input:not([type=checkbox],[type=radio],[type=file],[type=hidden],[type=range]), .submit-page select, .submit-page textarea {
+		display: block; width: 100%; margin-top: 8px; border: 1px solid #cfcfc5; border-radius: 2px;
+		padding: 11px 12px; background: #fff; color: var(--ink); font-size: 12px; min-height: 42px;
+	}
+	.submit-page textarea { resize: vertical; line-height: 1.6; }
+	.submit-page input::placeholder, .submit-page textarea::placeholder { color: #9a9b92; }
+
+	.text-field span { display: block; }
+	.field-message { min-height: 16px; margin: 5px 0 10px; color: var(--red); font-size: 10px; }
+	.field-message.error { color: var(--red); }
+
+	.drop-zone { display: flex; min-height: 150px; flex-direction: column; align-items: center; justify-content: center; padding: 22px; border: 1px dashed #9fa097; border-radius: 2px; background: #fbfaf2; cursor: pointer; text-align: center; transition: border-color .15s ease, background .15s ease; }
 	.drop-zone:hover, .drop-zone.is-dragging { border-color: var(--yellow-dark); background: #fff9dd; }
 	.drop-zone input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); clip-path: inset(50%); white-space: nowrap; }
 	.upload-icon { display: grid; width: 34px; height: 34px; place-items: center; margin-bottom: 11px; border: 1px solid #d2d0c3; border-radius: 50%; background: #fff; color: #7e7f77; font-size: 17px; }
-	.drop-zone strong { font-size: 13px; }
+	.drop-zone strong { font-size: 13px; overflow-wrap: anywhere; }
 	.drop-zone > span:not(.upload-icon) { margin-top: 6px; color: #74766f; font-size: 11px; }
-	.drop-zone small { margin-top: 15px; color: #999a92; font-size: 9px; }
-	.file-list { display: grid; gap: 7px; }
-	:global(.file-row) { display: flex; justify-content: space-between; gap: 16px; padding: 9px 11px; border: 1px solid #deddd3; background: #fff; font-size: 10px; }
-	:global(.file-row span) { flex: 0 0 auto; color: #777970; }
-	.success-note { display: flex; gap: 10px; margin-top: 14px; padding: 12px; border-left: 3px solid var(--green); background: var(--green-soft); }
-	.success-note[hidden] { display: none; }
-	.success-note > span { color: var(--green); font-weight: 800; }
-	.success-note p { margin: 0; color: #405b49; font-size: 10px; line-height: 1.45; }
-	.continue-button { width: 100%; justify-content: space-between; margin-top: 17px; }
-	.handoff-message { min-height: 16px; margin: 8px 0 0; color: var(--green); text-align: center; font-size: 10px; }
-	aside { padding: 38px 30px; border-left: 1px solid var(--line); background: #f0efe5; }
-	aside h2 { margin: 0 0 31px; font-size: 26px; font-weight: 550; line-height: 1.05; }
-	aside ol { margin: 0; padding: 0; list-style: none; }
-	aside li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding: 16px 0; border-top: 1px solid #d5d4c8; }
-	aside li > span { color: var(--yellow-dark); font-size: 9px; font-weight: 800; }
-	aside strong { font-size: 11px; }
-	aside li p { margin: 5px 0 0; color: #777970; font-size: 10px; line-height: 1.5; }
-	.privacy { margin: 31px 0 0; padding-top: 17px; border-top: 1px solid #d5d4c8; color: #85877f; font-size: 9px; line-height: 1.5; }
-	@media (max-width: 720px) {
-		.heading-row { align-items: start; flex-direction: column; gap: 18px; }
-		.intake { grid-template-columns: 1fr; }
-		.intake > section { padding: 30px 23px; }
-		aside { padding: 30px 23px; border-top: 1px solid var(--line); border-left: 0; }
+	.drop-zone small { margin-top: 13px; color: #999a92; font-size: 9px; }
+
+	.batch-file-list { margin: 0 0 20px; border: 1px solid var(--line); border-radius: 3px; background: #fff; overflow: hidden; }
+	.batch-file-list-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #f0efe5; }
+	.batch-file-list ul { list-style: none; margin: 0; padding: 0; }
+	.batch-file-list li { display: block; border-bottom: 1px solid var(--line); background: #fff; }
+	.batch-file-list li:last-child { border-bottom: 0; }
+	.batch-file-list li.active { background: #f6f5e8; box-shadow: inset 3px 0 var(--yellow-dark); }
+	.batch-file-row { display: flex; align-items: center; min-width: 0; }
+	.batch-file-select { flex: 1; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 0; background: transparent; text-align: left; min-width: 0; font-size: 11px; color: var(--ink); cursor: pointer; }
+	.batch-file-select:hover { background: #faf9ef; }
+	.batch-file-details { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+	.batch-file-name { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.batch-file-options-summary { font-size: 9px; color: var(--muted); }
+	.batch-file-size { color: var(--muted); flex-shrink: 0; }
+	.file-options-chevron { font-size: 16px; line-height: 1; color: var(--muted); flex-shrink: 0; transform: rotate(0deg); }
+	.batch-file-select[aria-expanded="true"] .file-options-chevron { transform: rotate(90deg); }
+	.batch-file-remove { border: 0; background: transparent; color: var(--muted); padding: 8px 12px; font-size: 15px; line-height: 1; flex-shrink: 0; cursor: pointer; }
+	.batch-file-remove:hover { color: var(--red); background: #faeee9; }
+	.batch-file-options .file-options { margin: 0; padding: 14px 12px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: #f1f4e8; }
+	.batch-file-options .file-options > legend { padding: 0; margin-bottom: 12px; font-size: 10px; color: var(--muted); max-width: 100%; overflow-wrap: anywhere; }
+	.batch-file-options .file-options > legend strong { color: var(--ink); }
+
+	.file-options { min-width: 0; }
+	.part-quick-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+	.part-quick-control { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 !important; padding: 10px 12px; border: 1px solid #d2d0c3; border-radius: 3px; background: #fff; font-size: 11px; min-height: 56px; }
+	.part-quick-control > span { line-height: 1.3; }
+	.part-quick-control small { display: block; font-size: 9px; font-weight: 400; color: var(--muted); margin-top: 3px; }
+	.part-quick-control select { width: 58px; min-height: 34px; padding: 5px 7px; margin: 0; flex-shrink: 0; background: #f4f3e9; }
+	.mirror-switch { appearance: none; position: relative; width: 38px; height: 22px; flex-shrink: 0; margin: 0; border: 1px solid #a8a99e; border-radius: 20px; background: #dcdcd0; cursor: pointer; }
+	.mirror-switch::before { content: ''; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 20%); transition: transform .12s; }
+	.mirror-switch:checked { background: var(--green); border-color: var(--green); }
+	.mirror-switch:checked::before { transform: translateX(16px); }
+
+	.file-settings { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+	.file-settings > summary { cursor: pointer; font-size: 11px; font-weight: 650; }
+	.file-settings-body { padding-top: 16px; }
+	.part-override-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -6px 0 12px; }
+
+	.text-button { border: 1px solid #b9baad; border-radius: 3px; background: #fff; color: var(--ink); padding: 6px 10px; font-size: 10px; cursor: pointer; }
+	.text-button:hover:not(:disabled) { background: #f0efe4; border-color: var(--green); }
+	.text-button:disabled { opacity: .5; cursor: not-allowed; }
+
+	.default-settings { min-width: 0; margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 3px; background: #f0efe5; }
+	.default-settings > legend { padding: 0 6px; font-size: 12px; font-weight: 650; }
+	.default-settings > p { margin: 0 0 14px; }
+	.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+	.part-settings-grid > label, .part-settings-grid > .part-color-field { min-width: 0; }
+	.part-color-field { position: relative; }
+	.part-color-field select { padding-right: 52px; }
+	.part-color-field > .swatch { position: absolute; right: 30px; top: 41px; pointer-events: none; }
+	.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgb(0 0 0 / 13%); flex-shrink: 0; }
+	.percent-input { display: block; position: relative; margin-top: 8px; }
+	.percent-input input { margin-top: 0; padding-right: 34px; }
+	.percent-input > span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; font-size: 11px; }
+	.setting-inheritance { display: block; font-size: 9px; font-weight: 400; color: var(--muted); margin-top: 5px; }
+	.notes-field textarea { min-height: 70px; }
+
+	.notice { border: 1px solid #d9c9a8; background: #f7efdb; border-radius: 3px; padding: 12px 14px; font-size: 11px; line-height: 1.6; margin: 18px 0; overflow-wrap: anywhere; }
+	.notice.error { border-color: #e0b6a8; background: #f9ece4; color: #8a3f2c; }
+	.form-actions { display: flex; gap: 14px; align-items: center; margin: 6px 0 12px; flex-wrap: wrap; }
+	.button.secondary { background: transparent; }
+	.button.secondary:hover:not(:disabled) { background: #efeee2; }
+
+	/* review step */
+	.review-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+	.review-header h2 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
+	.detail-card { border: 1px solid var(--line); border-radius: 3px; background: var(--surface); padding: 20px; margin-bottom: 16px; min-width: 0; }
+	.detail-card h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
+	.settings-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 18px 0 4px; }
+	.settings-grid dt { font-size: 9px; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .06em; }
+	.settings-grid dd { margin: 0; font-size: 11px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+	.review-value-text { overflow-wrap: anywhere; }
+	.review-notes-block { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+	.review-notes-label { display: block; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+	.operator-notes { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; background: #f0efe5; padding: 12px; border-radius: 3px; margin: 0; }
+	.review-part-card.active { border-color: #b9a44a; background: #fffdf2; }
+	.review-part-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+	.review-part-heading { min-width: 0; }
+	.review-part-heading h3 { margin-bottom: 4px; overflow-wrap: anywhere; }
+	.review-preview-btn { min-height: 32px; padding: 5px 10px; font-size: 10px; }
+	.review-preview-btn.is-active { background: #f3e9c4; border-color: var(--yellow-dark); }
+	.upload-progress progress { width: 100%; accent-color: var(--green); }
+	.upload-progress p { font-size: 10px; color: var(--muted); margin: 6px 0 0; }
+
+	/* receipt */
+	.receipt { max-width: 620px; margin: 26px auto; text-align: center; padding: 26px 20px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+	.receipt h2 { font-size: 26px; margin: 0 0 14px; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
+	.receipt p { font-size: 12px; line-height: 1.65; color: var(--muted); overflow-wrap: anywhere; }
+	.receipt .button { margin: 14px 8px 4px; }
+	.receipt .text-button { display: block; margin: 12px auto 0; }
+
+	/* preview column (mirrors the deployed PrintHive preview panel) */
+	.preview-column { align-self: start; position: sticky; top: 20px; }
+	.preview-panel { border: 1px solid var(--line); background: var(--surface); border-radius: 4px; padding: 18px; }
+	.preview-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+	.preview-header h2 { margin: 0; font-size: 15px; font-weight: 650; }
+	.preview-tabs { display: flex; border: 1px solid var(--line); border-radius: 4px; padding: 3px; gap: 3px; }
+	.preview-tabs button { border: 0; border-radius: 3px; background: transparent; font-size: 10px; padding: 5px 10px; color: var(--muted); cursor: pointer; }
+	.preview-tabs button[aria-selected="true"] { background: var(--ink); color: var(--paper); }
+	.preview-tabs button:disabled { background: #e9e8dd; color: #9a9b90; opacity: .65; cursor: not-allowed; }
+	.preview-file { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin-bottom: 12px; font-size: 11px; }
+	.preview-file > span { font-size: 9px; color: var(--muted); }
+	.preview-file strong { overflow-wrap: anywhere; font-weight: 650; }
+	.print-time { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; border: 1px solid #d5d9b8; background: #eef1da; padding: 10px 12px; border-radius: 3px; margin-bottom: 12px; font-size: 11px; }
+	.print-time > strong { font-size: 13px; font-weight: 650; }
+	.print-time .small { font-size: 9px; }
+	.support-result { display: flex; align-items: flex-start; gap: 9px; margin: 0 0 14px; padding: 11px; border: 1px solid #b9c9a8; border-radius: 4px; background: var(--green-soft); color: #33523d; }
+	.support-result strong { font-size: 12px; }
+	.support-result-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--green); color: #fff; font-size: 11px; }
+	.orientation-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; font-size: 10px; }
+	.orientation-toolbar > span { color: var(--muted); margin-right: auto; }
+	.orientation-toolbar button, .face-picker button { background: #fff; border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; font-size: 9px; cursor: pointer; }
+	.orientation-toolbar button[aria-pressed="true"] { border-color: var(--green); background: #e4f0e6; }
+	.orientation-toolbar button:disabled, .face-picker button:disabled { opacity: .5; cursor: not-allowed; }
+	.face-picker { border: 1px solid #c2d2b4; border-radius: 3px; background: #edf3e4; padding: 9px; margin-bottom: 10px; font-size: 10px; }
+	.face-picker p { margin: 0 0 6px; }
+	.face-picker > div { display: flex; gap: 5px; flex-wrap: wrap; }
+	.preview-canvas-frame { display: grid; grid-template-columns: minmax(0,1fr); }
+	.preview-canvas-frame.has-layers { grid-template-columns: minmax(0,1fr) 30px; gap: 7px; }
+	.preview-viewport { position: relative; height: 340px; touch-action: none; overflow: hidden; background: radial-gradient(circle at center, #e8e9e2, #d6d9d2); border-radius: 3px; }
+	.preview-viewport canvas { display: block; }
+	.preview-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #83887a; font-size: 11px; }
+	.preview-loading { position: absolute; left: 10px; right: 10px; bottom: 10px; background: rgb(255 254 248 / 93%); border: 1px solid var(--line); border-radius: 3px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; }
+	.layer-rail { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 4px 0; font-size: 9px; color: var(--muted); }
+	.layer-rail input[type=range] { writing-mode: vertical-lr; direction: rtl; flex: 1; width: 22px; min-height: 0; padding: 0; margin: 0; accent-color: var(--green); background: transparent; border: 0; }
+	.preview-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--muted); font-size: 9px; margin: 10px 0 14px; }
+	.layer-controls { border-top: 1px solid var(--line); padding-top: 10px; }
+	.layer-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 10px; }
+	.printer-fit-info { margin-top: 10px; padding: 10px 12px; background: #eef0e2; border-radius: 3px; border: 1px solid #d5d9b8; display: flex; flex-direction: column; gap: 5px; }
+	.fit-label { font-size: 8px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+	.fit-badges { display: flex; flex-direction: column; gap: 4px; }
+	.fit-badge { font-size: 10px; display: flex; align-items: center; gap: 6px; font-weight: 550; }
+	.fit-badge.fits { color: #2e5932; }
+	.fit-badge.exceeds { color: #8a3f2c; }
+	.preview-bed { font-size: 9px; color: var(--muted); margin: 10px 0 0; line-height: 1.6; }
+	.preview-bed strong { color: var(--ink); font-weight: 600; }
+	.preview-bed > span:last-child { display: block; color: #8a3f2c; }
+	.preview-message { color: var(--muted); margin-bottom: 0; }
+	.unit-warning { border: 1px solid #e0c9a8; background: #f9efdd; padding: 10px; border-radius: 3px; line-height: 1.6; }
+	.preview-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; font-size: 10px; color: var(--muted); }
+
+	/* fleet summary (same as the deployed submit page) */
+	.submit-fleet-summary { background: #f0efe5; border: 1px solid var(--line); border-radius: 4px; padding: 16px 20px; margin-top: 44px; }
+	.fleet-summary-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; font-size: 12px; }
+	.fleet-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%,280px),1fr)); gap: 12px; }
+	.fleet-chip-details { border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+	.fleet-chip-details > summary.fleet-chip { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; font-size: 11px; }
+	.fleet-chip-details > summary.fleet-chip::-webkit-details-marker { display: none; }
+	.fleet-chip-details > summary.fleet-chip:hover { background: #faf9ef; }
+	.fleet-chip-main { display: flex; flex-direction: column; gap: 2px; }
+	.fleet-chip-name { font-weight: 650; }
+	.fleet-chip-volume { font-size: 10px; background: #eef0e2; padding: 3px 8px; border-radius: 3px; }
+	.fleet-chip-tech { font-size: 9px; color: var(--muted); }
+	.dropdown-chevron { color: var(--muted); flex-shrink: 0; transition: transform .2s ease; }
+	details[open] > summary .dropdown-chevron { transform: rotate(180deg); }
+	.fleet-chip-content { padding: 12px 14px; border-top: 1px solid var(--line); background: #fbfaf3; display: flex; flex-direction: column; gap: 10px; }
+	.fleet-chip-content .printer-description { font-size: 10px; margin: 0; color: var(--muted); line-height: 1.55; }
+	.printer-features { list-style: none; padding-top: 8px; margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 10px; border-top: 1px solid var(--line); }
+	.printer-features li { display: flex; align-items: flex-start; gap: 7px; line-height: 1.4; }
+	.printer-features li::before { content: "✓"; color: var(--green); font-weight: 700; flex-shrink: 0; }
+
+	@media (max-width: 900px) {
+		.submission-grid { grid-template-columns: 1fr; gap: 28px; }
+		.preview-column { position: static; }
+		.preview-viewport { height: 280px; }
+	}
+	@media (max-width: 640px) {
+		.heading-row { align-items: start; flex-direction: column; gap: 16px; }
+		.field-grid { grid-template-columns: 1fr; }
+		.settings-grid { grid-template-columns: repeat(2,1fr); }
+		.part-quick-controls { grid-template-columns: 1fr; }
+		.preview-viewport { height: 250px; }
+		.orientation-toolbar > span { width: 100%; }
 	}
 </style>
 
 <script>
-	import { canContinue, validateFiles } from "../scripts/file-validation.js";
-	const form = document.querySelector<HTMLFormElement>("#intake-form");
-	const titleInput = document.querySelector<HTMLInputElement>("#part-title");
-	const titleMessage = document.querySelector<HTMLElement>("#title-message");
-	const fileInput = document.querySelector<HTMLInputElement>("#model-file");
-	const dropZone = document.querySelector<HTMLElement>("#drop-zone");
-	const fileTitle = document.querySelector<HTMLElement>("#file-title");
-	const fileDetail = document.querySelector<HTMLElement>("#file-detail");
-	const fileMessage = document.querySelector<HTMLElement>("#file-message");
-	const fileList = document.querySelector<HTMLElement>("#file-list");
-	const successNote = document.querySelector<HTMLElement>("#success-note");
-	const continueButton = document.querySelector<HTMLButtonElement>("#continue-button");
-	const handoffMessage = document.querySelector<HTMLElement>("#handoff-message");
-	let validFiles: File[] = [];
-
-	function resetFilePresentation() {
-		if (fileTitle) fileTitle.textContent = "Upload 3D model files";
-		if (fileDetail) fileDetail.innerHTML = 'Drag and drop here, or <u>browse files</u>';
-		if (fileList) fileList.innerHTML = "";
-		if (successNote) successNote.hidden = true;
-	}
-	function updateReadiness() {
-		if (continueButton && titleInput) continueButton.disabled = !canContinue(titleInput.value, validFiles);
-	}
-	function safeName(name: string) { return name.replace(/[<>&"']/g, ""); }
-	function showFiles(files: File[]) {
-		if (!fileInput || !fileMessage || !fileList || !successNote || !fileTitle || !fileDetail) return;
-		fileMessage.textContent = "";
-		if (handoffMessage) handoffMessage.textContent = "";
-		resetFilePresentation();
-		const result = validateFiles(files);
-		if (!result.ok) {
-			validFiles = [];
-			fileInput.value = "";
-			fileMessage.textContent = result.error;
-			updateReadiness();
-			return;
-		}
-		validFiles = files;
-		fileTitle.textContent = files.length === 1 ? files[0].name : `${files.length} model files selected`;
-		fileDetail.textContent = "Valid format and size";
-		fileList.innerHTML = files.map((file) => `<div class="file-row"><strong>${safeName(file.name)}</strong><span>${(file.size / (1024 * 1024)).toFixed(2)} MB</span></div>`).join("");
-		successNote.hidden = false;
-		updateReadiness();
-	}
-
-	titleInput?.addEventListener("input", () => {
-		if (titleMessage) titleMessage.textContent = titleInput.value.trim() ? "" : "Enter a part title to continue.";
-		updateReadiness();
-	});
-	titleInput?.addEventListener("blur", () => { if (titleMessage && !titleInput.value.trim()) titleMessage.textContent = "Enter a part title to continue."; });
-	fileInput?.addEventListener("change", () => showFiles(Array.from(fileInput.files ?? [])));
-	dropZone?.addEventListener("keydown", (event) => {
-		if ((event.key === "Enter" || event.key === " ") && fileInput) { event.preventDefault(); fileInput.click(); }
-	});
-	dropZone?.addEventListener("dragover", (event) => { event.preventDefault(); dropZone.classList.add("is-dragging"); });
-	dropZone?.addEventListener("dragleave", () => dropZone.classList.remove("is-dragging"));
-	dropZone?.addEventListener("drop", (event) => {
-		event.preventDefault();
-		dropZone.classList.remove("is-dragging");
-		const files = Array.from(event.dataTransfer?.files ?? []);
-		if (!files.length || !fileInput) return;
-		const transfer = new DataTransfer();
-		files.forEach((file) => transfer.items.add(file));
-		fileInput.files = transfer.files;
-		showFiles(files);
-	});
-	continueButton?.addEventListener("click", () => { if (handoffMessage) handoffMessage.textContent = "Validated — the print-settings step can continue from here."; });
-	form?.addEventListener("submit", (event) => event.preventDefault());
+	import { initSubmitFlow } from "../scripts/submit-flow";
+	initSubmitFlow();
 </script>
