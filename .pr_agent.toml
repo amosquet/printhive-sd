@@ -1,0 +1,19 @@
+[config]
+repo_context_files = ["doc/DevelopmentProcess.md", "frontend/AGENTS.md"]
+
+[pr_reviewer]
+inline_key_issues = true
+extra_instructions = """
+PrintHive monorepo: Python 3.13 backend (uv, backend/src/backend/) + Astro/Bun frontend (frontend/), hosted on Vercel.
+Follow doc/DevelopmentProcess.md. Flag hardcoded secrets, injection risks, missing tests, and violations of the three-tier test layout (backend/tests/, frontend/tests/, tests/).
+"""
+
+[pr_code_suggestions]
+committable_code_suggestions = true
+extra_instructions = """
+PrintHive monorepo: Python 3.13 backend (uv, backend/src/backend/) + Astro/Bun frontend (frontend/), hosted on Vercel.
+Follow doc/DevelopmentProcess.md. Suggest concrete fixes for hardcoded secrets, injection risks, missing tests, and violations of the three-tier test layout (backend/tests/, frontend/tests/, tests/).
+"""
+
+[pr_description]
+publish_labels = false
