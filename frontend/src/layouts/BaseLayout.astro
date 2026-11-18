@@ -27,6 +27,7 @@ const currentPath = Astro.url.pathname;
 				<nav aria-label="Primary navigation">
 					<a class:list={[{ active: currentPath === "/" }]} href="/">Queue</a>
 					<a class:list={[{ active: currentPath === "/submit" }]} href="/submit">Submit a print</a>
+					<a class:list={[{ active: currentPath === "/my-prints" }]} href="/my-prints">My prints</a>
 					<span class="nav-divider" aria-hidden="true"></span>
 					<a href="#" aria-disabled="true">Operators</a>
 				</nav>

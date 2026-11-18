@@ -495,8 +495,9 @@ function renderReceipt() {
   <h2>Submission ready</h2>
   <p>This prototype validated <strong>${esc(state.title.trim())}</strong> (${files.length} ${files.length === 1 ? 'file' : 'files'}, ${totalCopies} ${totalCopies === 1 ? 'copy' : 'copies'}) locally — no files were uploaded and no email was sent.</p>
   <p>In the deployed PrintHive we would email <strong>${esc(state.email.trim().toLowerCase())}</strong> a confirmation link; confirm within 24 hours to join the queue.</p>
-  <p>Back on the queue page your print appears in the <strong>MY PRINT</strong> panel (queued → printing → ready for pickup).</p>
-  <a href="/" class="button primary">Back to queue</a>
+  <p>Follow it on the <strong>My prints</strong> page (queued → printing → ready for pickup).</p>
+  <a href="/my-prints" class="button primary">View my print</a>
+  <a href="/" class="button secondary">Back to queue</a>
   <button type="button" class="text-button" id="another-button">Submit another print</button>
 </div>`;
   $('#another-button').addEventListener('click', () => resetFlow());

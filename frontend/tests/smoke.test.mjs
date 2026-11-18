@@ -6,6 +6,7 @@ import { MAX_FILE_SIZE, MAX_BATCH_SIZE, canContinue, validateFiles, formatMiB } 
 import { PROFILES, MATERIALS, defaultPartSettings, resolvePartSettings, partScale, partSupportAngle } from "../src/scripts/print-settings.ts";
 
 const queuePage = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+const myPrintsPage = await readFile(new URL("../dist/my-prints/index.html", import.meta.url), "utf8");
 const submitPage = await readFile(new URL("../dist/submit/index.html", import.meta.url), "utf8");
 
 test("the queue home matches the final design S0 (hero, live queue, printers)", () => {
@@ -14,14 +15,22 @@ test("the queue home matches the final design S0 (hero, live queue, printers)", 
 	assert.match(queuePage, /href="\/submit"/);
 	assert.match(queuePage, /Submit a print/);
 	assert.match(queuePage, /Available printers/);
-	assert.match(queuePage, /id="queue-banner"/);
 	assert.match(queuePage, /id="queue-main"/);
-	assert.match(queuePage, /id="my-print"/);
+	assert.doesNotMatch(queuePage, /id="my-print"/, "the MY PRINT panel lives on /my-prints, not the queue home");
 	assert.match(queuePage, /Updates every 15 seconds\./);
 	assert.match(queuePage, /Bambu H2D Pro/);
 	assert.match(queuePage, /Prusa Core ONE\+/);
 	assert.match(queuePage, />Printing</);
 	assert.match(queuePage, />Queued</);
+});
+
+test("the my-prints page hosts the S5–S7 inspector with an empty state", () => {
+	assert.match(myPrintsPage, /id="queue-banner"/);
+	assert.match(myPrintsPage, /id="queue-main"/);
+	assert.match(myPrintsPage, /id="my-print"/);
+	assert.match(myPrintsPage, /No print yet/);
+	assert.match(myPrintsPage, /href="\/submit"/);
+	assert.match(myPrintsPage, /href="\/my-prints"[^>]*>My prints</, "nav links to My prints");
 });
 
 test("the intake requires a title and accepts multiple STL or OBJ files", () => {

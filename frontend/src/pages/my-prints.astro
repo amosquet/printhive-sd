@@ -1,0 +1,28 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import QueueSections from "../components/QueueSections.astro";
+---
+
+<BaseLayout title="My print | PrintHive" description="Follow your submitted print — queued, printing, ready for pickup (Final Design S5–S7).">
+	<main class="page">
+		<div id="queue-banner" hidden></div>
+		<div class="queue-layout" id="queue-layout">
+			<QueueSections />
+			<aside class="my-print" id="my-print" aria-label="My print status">
+				<p class="panel-label">MY PRINT</p>
+				<div class="panel-title-row"><h1 class="panel-title">No print yet</h1></div>
+				<div class="slice-box">
+					<p class="box-title">Nothing in your queue</p>
+					<p>Submit a print and it will show up here — queued, then printing, then ready for pickup.</p>
+				</div>
+				<div class="panel-actions">
+					<a class="button primary" href="/submit">Submit a print</a>
+					<a class="button secondary" href="/">Back to queue</a>
+				</div>
+			</aside>
+		</div>
+	</main>
+	<script>
+		import "../scripts/queue-page.ts";
+	</script>
+</BaseLayout>

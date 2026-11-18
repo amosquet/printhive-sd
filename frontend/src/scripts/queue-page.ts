@@ -1,13 +1,14 @@
 /**
- * Queue home enhancement — Final Design screens S5 (Submitted · My print
- * queued), S6 (My print · Printing) and S7 (My print · Ready for pickup).
+ * My prints page (/my-prints) — Final Design screens S5 (Submitted · My
+ * print queued), S6 (My print · Printing) and S7 (My print · Ready for
+ * pickup), shown next to the live queue.
  *
  * The submit flow stores the submitted print in localStorage under
  * `printhive:myPrint`; this script renders the matching banner, queue rows
  * and "MY PRINT" inspector panel. Purple dashed demo buttons advance the
  * state (queued → printing → ready) so the Figma screens can be previewed
- * without a backend. Without a stored print the server-rendered S0 queue
- * is left untouched.
+ * without a backend. Without a stored print the server-rendered "No print
+ * yet" empty state is left untouched.
  */
 
 export type MyPrintStatus = 'queued' | 'printing' | 'ready' | 'canceled';
@@ -443,9 +444,9 @@ function estReadyFromNow(print: MyPrint): string {
 }
 
 function init(): void {
-	if (typeof document === 'undefined' || !document.getElementById('queue-main')) return; // not the queue page (e.g. imported by /submit)
+	if (typeof document === 'undefined' || !document.getElementById('my-print')) return; // not the my-prints page (e.g. imported by /submit)
 	const print = loadMyPrint();
-	if (!print) return; // plain S0 queue home, server-rendered
+	if (!print) return; // server-rendered "No print yet" empty state stays
 	render(print);
 }
 

@@ -1,0 +1,50 @@
+---
+// Static S0 queue sections, shared by the queue home (/) and the my-prints
+// page (/my-prints). queue-page.ts replaces #queue-main's content when a
+// submitted print is stored.
+---
+
+<div class="queue-main" id="queue-main">
+	<section class="queue-section" aria-label="Currently printing">
+		<div class="section-head"><h2>Printing</h2><span class="count-chip">1</span></div>
+		<div class="job-list">
+			<div class="job-row">
+				<div class="job-badges"><span class="badge badge-amber">Printing</span></div>
+				<div class="job-info">
+					<p class="job-title">Bracket v2</p>
+					<p class="job-meta">Prusa Core ONE+ · PLA white · 0.2 mm layers · Est. ready ~4:55 PM</p>
+				</div>
+				<div class="job-side">
+					<div class="job-progress">
+						<div class="progress-track" role="img" aria-label="62% complete"><span style="width:62%"></span></div>
+						<span class="job-pct">62%</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+	<section class="queue-section" aria-label="Queued prints">
+		<div class="section-head"><h2>Queued</h2><span class="count-chip">2</span></div>
+		<div class="job-list">
+			<div class="job-row">
+				<div class="job-badges"><span class="badge badge-green">Starts ~2:30 PM</span></div>
+				<div class="job-info">
+					<p class="job-title">Cable clip ×2</p>
+					<p class="job-meta">Bambu H2D Pro · PLA black · Plate open for other PLA black parts</p>
+					<div class="why-here"><p>Why here? Other PLA black parts can still join this build plate (FR-11), and it finishes before the 6:00 PM shift ends (FR-10).</p></div>
+				</div>
+				<div class="job-side"><a class="details-link" href="#">Details ›</a></div>
+			</div>
+			<div class="job-row">
+				<div class="job-badges"><span class="badge badge-gray">Waiting · overnight</span></div>
+				<div class="job-info">
+					<p class="job-title">Enclosure lid (est. 9 h 10 m)</p>
+					<p class="job-meta">Prusa Core ONE+ · PETG black · Submitted 1 h ago</p>
+					<div class="why-here"><p>Why later? Too long to finish within today’s staffed shift, so it waits for the overnight window (FR-10). Waiting time raises its priority (FR-17).</p></div>
+				</div>
+				<div class="job-side"><a class="details-link" href="#">Details ›</a></div>
+			</div>
+		</div>
+	</section>
+	<p class="queue-note">Updates every 15 seconds.</p>
+</div>
