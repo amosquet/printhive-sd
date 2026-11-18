@@ -1,0 +1,61 @@
+name: PR Agent
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [master, dev]
+  issue_comment:
+    types: [created] # enables manual /review, /describe, /improve, /ask on PRs
+
+permissions:
+  contents: read
+  issues: write # post comments / labels
+  pull-requests: write # post review comments
+
+concurrency:
+  group: pr-agent-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr_agent_job:
+    name: AI Code Audit
+    if: github.event.sender.type != 'Bot' && (github.event_name != 'issue_comment' || github.event.issue.pull_request)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve PR branches
+        id: pr_branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_API_URL: ${{ github.event.issue.pull_request.url }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+            echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = "issue_comment" ] && [ -n "$PR_API_URL" ]; then
+            base_ref="$(gh api "$PR_API_URL" --jq '.base.ref')"
+            head_ref="$(gh api "$PR_API_URL" --jq '.head.ref')"
+            echo "base_ref=$base_ref" >> "$GITHUB_OUTPUT"
+            echo "head_ref=$head_ref" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: PR Agent action step
+        uses: the-pr-agent/pr-agent@v0.50.0 # pinned release tag; dependabot bumps it weekly (use @main if you prefer)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+          # Model per PR flow:
+          #   PRs from dev into master -> gemini-4-carbon
+          #   All other PRs (e.g. feature branches into dev) -> gemini-4-argon
+          config.model: ${{ (steps.pr_branches.outputs.base_ref == 'master' && steps.pr_branches.outputs.head_ref == 'dev') && 'gemini/gemini-4-carbon' || 'gemini/gemini-4-argon' }}
+          config.model_weak: "gemini/gemini-4-argon" # /describe, /ask, /update_changelog stay on Argon on every branch
+          config.fallback_models: ${{ (steps.pr_branches.outputs.base_ref == 'master' && steps.pr_branches.outputs.head_ref == 'dev') && '["gemini/gemini-4-argon"]' || '[]' }}
+
+          # Automatic commands on PR open / new commits
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "true"
+          github_action_config.auto_improve: "true"
+          github_action_config.pr_actions: '["opened", "reopened", "synchronize", "ready_for_review"]'
