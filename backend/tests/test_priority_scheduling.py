@@ -2,7 +2,7 @@
 
 import itertools
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from backend.priority_scheduling import (
@@ -15,7 +15,7 @@ from backend.priority_scheduling import (
     remaining_staffed_seconds,
 )
 
-NOW = datetime(2026, 11, 15, 15, tzinfo=timezone.utc)
+NOW = datetime(2026, 11, 15, 15, tzinfo=UTC)
 
 
 class SchedulingTests(unittest.TestCase):

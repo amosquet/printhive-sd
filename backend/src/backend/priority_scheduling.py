@@ -6,14 +6,14 @@ This module neither reserves jobs nor sends commands to printers.
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from math import fsum, isfinite
 
 
 def _utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("timestamps must include a timezone")
-    return value.astimezone(timezone.utc)
+    return value.astimezone(UTC)
 
 
 def _finite(value: float) -> bool:
@@ -86,8 +86,7 @@ def remaining_staffed_seconds(shifts: Iterable[StaffShift], now: datetime) -> fl
 def known_total_duration(durations: Iterable[float | None]) -> float | None:
     """Sum member estimates only when every member has a positive finite value.
 
-    Future D-02 adapters must inspect each item.parsed.duration_s, rather than
-    trusting Batch.total_duration_s, which currently substitutes zero for None.
+    Use each batch member's estimate so a missing duration stays unknown.
     """
 
     values = tuple(durations)
