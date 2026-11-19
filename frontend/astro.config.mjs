@@ -4,6 +4,7 @@ import { defineConfig } from 'astro/config';
 // https://astro.build/config
 export default defineConfig({
   vite: {
+    server: { strictPort: true },
     // Workers load these entry points lazily. Discovering them after file selection
     // otherwise causes a dev-server reload that discards the selected File objects.
     optimizeDeps: {

@@ -123,7 +123,7 @@ const defaultColorCode = defaultMaterial.colors.find((c) => c.name === defaultCo
 								<input id="email" name="email" type="email" required maxlength="254" pattern="[^@\s]+@purdue\.edu" autocomplete="email" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="you@purdue.edu" aria-describedby="email-message" />
 							</label>
 							<p class="field-message" id="email-message" aria-live="polite"></p>
-							<p class="small muted">Confirmation and updates go here. Email and notes are private; title and print settings are public. This prototype keeps files in your browser — nothing is uploaded yet.</p>
+							<p class="small muted">Use your Purdue email for this print request.</p>
 						</fieldset>
 
 						<p class="notice error" id="form-message" role="alert" hidden></p>
@@ -147,11 +147,10 @@ const defaultColorCode = defaultMaterial.colors.find((c) => c.name === defaultCo
 							<p id="upload-progress-text"></p>
 						</div>
 						<div class="form-actions">
-							<button class="button primary" id="confirm-button" type="submit">Send confirmation email</button>
+							<button class="button primary" id="confirm-button" type="submit">Submit print request</button>
 							<button type="button" class="button secondary" id="back-button">Back to edit</button>
 							<button type="button" class="text-button" id="cancel-button" hidden>Cancel</button>
 						</div>
-						<p class="small muted">Confirm the email link within 24 hours to join the queue.</p>
 					</section>
 
 					<section id="step-receipt" hidden aria-label="Submission receipt"></section>

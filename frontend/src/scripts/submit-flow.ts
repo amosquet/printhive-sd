@@ -4,14 +4,12 @@
  * Mirrors the deployed PrintHive SubmissionForm: step 1 collects part details
  * (title, STL/OBJ batch, default print settings, per-part options, notes,
  * Purdue email) next to the sliced 3D preview; step 2 reviews every part;
- * confirming runs the upload progress and ends on a receipt. This prototype
- * keeps everything client-side: confirming simulates the upload locally and
- * says so on the receipt instead of claiming an email was sent.
+ * confirming uploads the models to the Python API and displays its receipt.
  */
 import { IDENTITY_ROTATION } from '@time-estimator/browser-preview/pose';
 import { validateFiles, MAX_BATCH_SIZE, formatMiB } from './file-validation.js';
 import { PrintPreview } from './print-preview';
-import { PREVIEW_PRINTERS, selectPreviewPrinter, fitsPreviewPrinter, applyPrintTimeAllowance } from './preview-profile';
+import { PREVIEW_PRINTERS, selectPreviewPrinter, fitsPreviewPrinter } from './preview-profile';
 import { loadMyPrints, saveMyPrints, type MyPrint } from './queue-page';
 import {
   MATERIALS,
@@ -54,7 +52,6 @@ interface FlowState {
   email: string;
   step: 'details' | 'review' | 'done';
   busy: boolean;
-  progress: number;
 }
 
 const DEFAULT_ROTATION: number[] = [...IDENTITY_ROTATION];
@@ -72,11 +69,11 @@ const state: FlowState = {
   email: '',
   step: 'details',
   busy: false,
-  progress: 0,
 };
 
 let preview: PrintPreview;
-let submitTimer: number | null = null;
+let activeUpload: XMLHttpRequest | null = null;
+let submissionId: string | null = null;
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => {
   const selector = id.startsWith('#') ? id : `#${id}`;
@@ -409,7 +406,6 @@ function renderReview() {
   const files = state.files;
   const totalCopies = files.reduce((sum, entry) => sum + (state.partOptions.get(entry.file)?.copies ?? 1), 0);
   $('#review-heading').textContent = files.length > 1 ? `Review your ${files.length} prints` : 'Review your print';
-  $('#confirm-button').textContent = 'Send confirmation email';
   const cards = files
     .map((entry, i) => {
       const part = resolvePartSettings(state.global, state.partOptions.get(entry.file), MATERIALS);
@@ -459,68 +455,39 @@ function renderReview() {
 <div class="review-parts-list" aria-label="Parts to submit">${cards}</div>`;
 }
 
-function formatEstTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return '—';
-  const minutes = Math.round(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  if (!hours) return `${minutes} min`;
-  return `${hours} h${remainder ? ` ${remainder} m` : ''}`;
-}
-
-function estReadyClock(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return '—';
-  const ready = new Date(Date.now() + seconds * 1000);
-  let h = ready.getHours() % 12;
-  if (h === 0) h = 12;
-  return `~${h}:${String(ready.getMinutes()).padStart(2, '0')} ${ready.getHours() >= 12 ? 'PM' : 'AM'}`;
-}
-
-function newPrintRef(): string {
-  const bytes = new Uint8Array(2);
-  crypto.getRandomValues(bytes);
-  return `#${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
-}
-
-/** Persist the submitted print so /my-prints can show it as "MY PRINT" (Figma S5). */
-function rememberSubmittedPrint(): void {
+/** Cache the receipt locally for the My prints page. */
+function rememberSubmittedPrint(id: string): void {
   const first = state.files[0];
   const part = resolvePartSettings(state.global, first ? state.partOptions.get(first.file) : undefined, MATERIALS);
-  const profile = getProfile(part.profile);
-  const dims = first ? scaledDims(first, part) : null;
-  const printer = dims && dims.length ? selectPreviewPrinter(dims) : PREVIEW_PRINTERS[0];
-  const seconds = preview?.estimatedSeconds;
-  const withAllowance = seconds !== undefined ? applyPrintTimeAllowance(seconds, 30) : NaN;
   const print: MyPrint = {
     title: state.title.trim(),
-    ref: newPrintRef(),
+    ref: id,
     email: state.email.trim().toLowerCase(),
-    profileName: profile.name,
+    profileName: getProfile(part.profile).name,
     material: part.material,
     color: part.color,
-    printer: printer.name,
-    estTime: formatEstTime(withAllowance),
-    status: 'queued',
+    printer: 'Pending printer assignment',
+    estTime: '—',
+    status: 'submitted',
     progress: 0,
-    queuePosition: 1,
+    queuePosition: 0,
     startedAt: '',
-    estReady: estReadyClock(withAllowance),
+    estReady: '',
     finishedAt: '',
     cubby: '',
     submittedAt: Date.now(),
   };
-  saveMyPrints([...loadMyPrints(), print]);
+  saveMyPrints([...loadMyPrints().filter((item) => item.ref !== id), print]);
 }
 
-function renderReceipt() {
+function renderReceipt(id: string) {
   const files = state.files;
   const totalCopies = files.reduce((sum, entry) => sum + (state.partOptions.get(entry.file)?.copies ?? 1), 0);
-  rememberSubmittedPrint();
+  rememberSubmittedPrint(id);
   $('#step-receipt').innerHTML = `<div class="receipt">
-  <h2>Submission ready</h2>
-  <p>This prototype validated <strong>${esc(state.title.trim())}</strong> (${files.length} ${files.length === 1 ? 'file' : 'files'}, ${totalCopies} ${totalCopies === 1 ? 'copy' : 'copies'}) locally — no files were uploaded and no email was sent.</p>
-  <p>In the deployed PrintHive we would email <strong>${esc(state.email.trim().toLowerCase())}</strong> a confirmation link; confirm within 24 hours to join the queue.</p>
-  <p>Follow it on the <strong>My prints</strong> page (queued → printing → ready for pickup).</p>
+  <h2>Print request received</h2>
+  <p>We saved <strong>${esc(state.title.trim())}</strong> (${files.length} ${files.length === 1 ? 'file' : 'files'}, ${totalCopies} ${totalCopies === 1 ? 'copy' : 'copies'}).</p>
+  <p>Submission ID <strong>${esc(id)}</strong></p>
   <a href="/my-prints" class="button primary">View my print</a>
   <a href="/" class="button secondary">Back to queue</a>
   <button type="button" class="text-button" id="another-button">Submit another print</button>
@@ -540,14 +507,10 @@ function resetFlow() {
   state.email = '';
   state.step = 'details';
   state.busy = false;
-  state.progress = 0;
+  submissionId = null;
   ($('#part-title') as HTMLInputElement).value = '';
   ($('#operator-notes') as HTMLTextAreaElement).value = '';
   ($('#email') as HTMLInputElement).value = '';
-  if (submitTimer !== null) {
-    clearInterval(submitTimer);
-    submitTimer = null;
-  }
   $('#upload-progress').hidden = true;
   setSubmitButtons(false);
   showStep('details');
@@ -635,55 +598,83 @@ async function toReview(): Promise<boolean> {
 function setSubmitButtons(busy: boolean) {
   ($('#confirm-button') as HTMLButtonElement).disabled = busy;
   ($('#back-button') as HTMLButtonElement).disabled = busy;
+  ($('#edit-button') as HTMLButtonElement).disabled = busy;
   $('#cancel-button').hidden = !busy;
+}
+
+function submissionForm(id: string): FormData {
+  const parts = state.files.map(({ file }) => {
+    const settings = resolvePartSettings(state.global, state.partOptions.get(file), MATERIALS);
+    return {
+      ...settings,
+      scalePercent: Number(settings.scalePercent),
+      supportAngle: partSupportAngle(settings) ?? null,
+      rotation: state.orientations.get(file) ?? DEFAULT_ROTATION,
+    };
+  });
+  const form = new FormData();
+  form.set('submission', JSON.stringify({
+    id,
+    title: state.title.trim(),
+    email: state.email.trim().toLowerCase(),
+    notes: state.notes.trim(),
+    parts,
+  }));
+  for (const { file } of state.files) form.append('models', file);
+  return form;
 }
 
 function startSubmit() {
   if (state.busy) return;
+  const api = (import.meta.env.PUBLIC_PRINT_API_URL ?? (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')).replace(/\/$/, '');
+  const id = submissionId ??= crypto.randomUUID();
+  const request = new XMLHttpRequest();
+  request.open('POST', `${api}/api/prints`);
+  request.responseType = 'json';
+  activeUpload = request;
   state.busy = true;
-  state.progress = 0;
+  clearMessages();
   setSubmitButtons(true);
+
   const progress = $('#upload-progress');
   const bar = $('#upload-progress-bar') as HTMLProgressElement;
   const text = $('#upload-progress-text');
   progress.hidden = false;
-  const totalBytes = Math.max(1, state.files.reduce((sum, entry) => sum + entry.file.size, 0));
-  let loaded = 0;
-  const plural = state.files.length > 1 ? 's' : '';
-  submitTimer = window.setInterval(() => {
-    loaded = Math.min(totalBytes, loaded + totalBytes / 18);
-    state.progress = Math.round((loaded / totalBytes) * 100);
-    bar.value = state.progress;
-    text.textContent =
-      state.progress < 100
-        ? `Uploading your STL${plural}… ${state.progress}%`
-        : `Validating your STL${plural} and sending your confirmation email…`;
-    if (state.progress >= 100) finishSubmit();
-  }, 90);
-}
+  bar.removeAttribute('value');
+  text.textContent = 'Uploading your models…';
 
-function cancelSubmit() {
-  if (submitTimer !== null) {
-    clearInterval(submitTimer);
-    submitTimer = null;
-  }
-  state.busy = false;
-  $('#upload-progress').hidden = true;
-  setSubmitButtons(false);
-  setFormMessage('Upload canceled.');
-}
+  const complete = (message?: string) => {
+    activeUpload = null;
+    state.busy = false;
+    progress.hidden = true;
+    setSubmitButtons(false);
+    if (message) setFormMessage(message);
+  };
 
-function finishSubmit() {
-  if (submitTimer !== null) {
-    clearInterval(submitTimer);
-    submitTimer = null;
-  }
-  state.busy = false;
-  $('#upload-progress').hidden = true;
-  setSubmitButtons(false);
-  renderReceipt();
-  showStep('done');
-  pushPreview();
+  request.upload.onprogress = (event) => {
+    if (!event.lengthComputable) return;
+    const percent = Math.round((event.loaded / event.total) * 100);
+    bar.value = percent;
+    text.textContent = `Uploading your models… ${percent}%`;
+  };
+  request.upload.onload = () => {
+    bar.removeAttribute('value');
+    text.textContent = 'Saving your print request…';
+  };
+  request.onload = () => {
+    const receipt = request.response;
+    if (request.status === 201 && receipt?.id === id && receipt?.status === 'submitted') {
+      complete();
+      renderReceipt(id);
+      showStep('done');
+      pushPreview();
+      return;
+    }
+    complete(typeof receipt?.detail === 'string' ? receipt.detail : 'Unable to save your print request. Try again.');
+  };
+  request.onerror = () => complete('The print server could not confirm this request. Try again.');
+  request.onabort = () => complete('Upload stopped. Submit again to confirm whether the request was saved.');
+  request.send(submissionForm(id));
 }
 
 // ---------- global settings ----------
@@ -901,17 +892,19 @@ export function initSubmitFlow() {
   });
   $('#edit-button').addEventListener('click', () => {
     if (state.busy) return;
+    submissionId = null;
     clearMessages();
     showStep('details');
     pushPreview();
   });
   $('#back-button').addEventListener('click', () => {
     if (state.busy) return;
+    submissionId = null;
     clearMessages();
     showStep('details');
     pushPreview();
   });
-  $('#cancel-button').addEventListener('click', () => cancelSubmit());
+  $('#cancel-button').addEventListener('click', () => activeUpload?.abort());
 
   // initial paint
   rebuildColorOptions();

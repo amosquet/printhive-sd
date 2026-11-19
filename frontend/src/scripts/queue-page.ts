@@ -12,7 +12,7 @@
  * a backend.
  */
 
-export type MyPrintStatus = 'queued' | 'printing' | 'ready' | 'canceled';
+export type MyPrintStatus = 'submitted' | 'queued' | 'printing' | 'ready' | 'canceled';
 
 export interface MyPrint {
 	title: string;
@@ -74,6 +74,8 @@ type BadgeTone = 'green' | 'yellow' | 'amber' | 'gray';
 
 function myPrintBadges(print: MyPrint): { text: string; tone: BadgeTone }[] {
 	switch (print.status) {
+		case 'submitted':
+			return [{ text: 'Submitted', tone: 'green' }];
 		case 'printing':
 			return [
 				{ text: 'Printing', tone: 'amber' },
@@ -93,6 +95,8 @@ function myPrintBadges(print: MyPrint): { text: string; tone: BadgeTone }[] {
 
 function myPrintMeta(print: MyPrint): string {
 	switch (print.status) {
+		case 'submitted':
+			return `${print.material} ${print.color} · ${print.profileName}`;
 		case 'ready':
 			return `Finished ${print.finishedAt} on ${print.printer} · Plate cleared by attendant · ${print.cubby}`;
 		case 'printing':
@@ -132,6 +136,8 @@ function renderMyPrintsSection(prints: MyPrint[], selectedId: string | null): st
 
 function renderBanner(print: MyPrint): string {
 	switch (print.status) {
+		case 'submitted':
+			return `<div class="banner banner-green" role="status">The print server received “${esc(print.title)}”.</div>`;
 		case 'printing':
 			return `<div class="banner banner-neutral" role="status">Your print started at ${esc(print.startedAt)} on ${esc(print.printer)}.</div>`;
 		case 'ready':
@@ -166,6 +172,8 @@ function renderSteps(current: number, canceled = false): string {
 
 function statusBadge(print: MyPrint): string {
 	switch (print.status) {
+		case 'submitted':
+			return '<span class="badge badge-green">Submitted</span>';
 		case 'printing':
 			return `<span class="badge badge-amber">Printing · ${print.progress}%</span>`;
 		case 'ready':
@@ -178,6 +186,9 @@ function statusBadge(print: MyPrint): string {
 }
 
 function renderPanelBody(print: MyPrint): string {
+	if (print.status === 'submitted') {
+		return '<p class="panel-note">Your files and print settings have been saved. Live print status is currently unavailable.</p>';
+	}
 	if (print.status === 'printing') {
 		return `${renderSteps(3)}
 <div class="camera" aria-label="Live camera placeholder">

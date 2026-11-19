@@ -5,10 +5,21 @@ lists your own submitted prints next to the live queue, with the "MY PRINT"
 inspector (Final Design S5–S7) for the print you select; `/submit` is the
 print submission flow (part details + default print settings + per-part
 options → review → submit), with an interactive three.js preview that slices
-the selected model in the browser. Each submission is appended to
-`localStorage` (`printhive:myPrints`), so "View my print" on the receipt lands
-on S5 (queued); dashed demo buttons advance the selected print to printing
-(S6) and ready for pickup (S7).
+the selected model in the browser. The submit page sends files and settings
+to the Python API. After the API confirms that PostgreSQL saved them, the
+browser stores a receipt summary for the "View my print" screen.
+
+## Start the frontend and API together
+
+Set up the PostgreSQL database and `backend/.env` as described in the
+[backend README](../backend/README.md#print-submission-api). Run
+`bun install --frozen-lockfile` and then `bun dev` from `frontend/`. Astro
+runs on port 4321 by default and the Python API runs on port 8000.
+For a frontend-only session, use `bun run astro dev --background`.
+
+For a hosted build, set `PUBLIC_PRINT_API_URL` to the API origin if the site
+and API use different origins. Set `FRONTEND_ORIGINS` in the backend
+environment to allow the frontend origin.
 
 ## Preview slicing runtime
 
@@ -51,7 +62,7 @@ All commands are run from the root of the project, from a terminal:
 | Command                   | Action                                           |
 | :------------------------ | :----------------------------------------------- |
 | `bun install`             | Installs dependencies                            |
-| `bun dev`             | Starts local dev server at `localhost:4321`      |
+| `bun dev`             | Starts Astro and the Python submission API      |
 | `bun build`           | Build your production site to `./dist/`          |
 | `bun preview`         | Preview your build locally, before deploying     |
 | `bun astro ...`       | Run CLI commands like `astro add`, `astro check` |
