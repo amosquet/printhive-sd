@@ -103,6 +103,7 @@ def slice_stl(
     profile: str = "standard",
     printer: str = "prusa-mk4",
     timeout_s: float = 600.0,
+    working_dir: Path | None = None,
 ) -> Path:
     """Slice one STL with the Orca Slicer CLI and return the produced G-code path.
 
@@ -110,7 +111,8 @@ def slice_stl(
     high_strength) and ``printer`` selects the target machine preset from
     ``backend/profiles/``; ``settings``/``datadir`` override the preset bundle
     (env: ``PRINTHIVE_ORCA_SETTINGS`` / ``PRINTHIVE_ORCA_DATADIR``) for custom
-    setups.
+    setups. ``working_dir`` isolates files Orca writes in its current directory;
+    use absolute model and output paths with it.
     """
 
     binary = binary or find_orca_slicer()
@@ -118,6 +120,8 @@ def slice_stl(
         raise SlicerUnavailableError(
             "Orca Slicer CLI not found; set PRINTHIVE_ORCA_SLICER or install orca-slicer"
         )
+    if working_dir is not None and Path(binary).is_file():
+        binary = str(Path(binary).resolve())
     stl_path = Path(stl_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -135,7 +139,7 @@ def slice_stl(
     cmd.append(str(stl_path))
 
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, check=False)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, check=False, cwd=working_dir)
         if proc.returncode == 206:
             # Retry with an explicit 90-degree Z rotation for full-plate models whose
             # unrotated orientation exceeds the bed and cannot be auto-arranged with margin.
@@ -145,7 +149,7 @@ def slice_stl(
             if settings:
                 rot_cmd += ["--load-settings", str(settings)]
             rot_cmd.append(str(stl_path))
-            proc = subprocess.run(rot_cmd, capture_output=True, text=True, timeout=timeout_s, check=False)
+            proc = subprocess.run(rot_cmd, capture_output=True, text=True, timeout=timeout_s, check=False, cwd=working_dir)
     except subprocess.TimeoutExpired as exc:
         raise SliceError(f"Orca Slicer timed out after {timeout_s}s slicing {stl_path}") from exc
     if proc.returncode != 0:

@@ -37,12 +37,58 @@ stores the request, original file bytes, and per-part settings in PostgreSQL
 and returns a submission ID with status `submitted`. A retry with the same ID
 and payload returns the original receipt. The API checks the Purdue email
 domain, submission fields, file extensions, and upload sizes. The browser
-checks geometry during preview. Email verification, server-side geometry
-validation, and transfer to the slicing worker are separate integration steps.
-Keep the API local until authentication and deployment controls are in place.
+checks geometry during preview. The slicing worker below checks STL geometry
+again before calling OrcaSlicer. Keep the API local until email verification
+and deployment controls are in place.
 
 Set `PRINTHIVE_TEST_DATABASE_URL` to a PostgreSQL test database to include the
 submission integration test in `uv run --locked pytest tests/`.
+
+## Local upload-to-scheduler demo
+
+Set up the submission API first. From `backend/`, apply `sql/slice_jobs.sql`
+to the same PostgreSQL database after applying `sql/print_submissions.sql`.
+
+```bash
+set -a
+. ./.env
+set +a
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sql/slice_jobs.sql
+```
+
+The migration queues existing submissions and automatically queues new uploads
+in the same transaction that saves the request. Start the site with `bun dev`
+from `frontend/`. Submit `backend/tests/stl/cube_20mm.stl` as one PLA part with
+the default print settings. Use a single copy, millimeters, 100% scale, and
+the original orientation with no mirror or support overrides. The worker uses
+the selected Draft, Standard, or High Strength process profile. It records
+unsupported requests as failed without making them eligible for scheduling.
+
+Install the OrcaSlicer CLI on the worker host. Set `PRINTHIVE_ORCA_SLICER` in
+`backend/.env` if Orca is outside the normal discovery locations. Then run the
+worker from `backend/`.
+
+```bash
+uv run --locked printhive-slice-worker --printer prusa-core-one-plus --once
+```
+
+Omit `--once` to poll for pending jobs. The worker stores the G-code and its
+estimated duration in seconds together. If a worker stops, another can reclaim
+the job after the lease expires.
+
+Check the scheduler with an active shift expressed as timezone-aware timestamps.
+Replace the sample bounds with a shift that covers the demo time and leaves
+enough time for the print to finish.
+
+```bash
+uv run --locked printhive-slice-worker --eligible --printer prusa-core-one-plus \
+  --shift-start '2026-11-18T20:00:00-05:00' --shift-end '2026-11-19T01:00:00-05:00' \
+  --aging-per-hour 0
+```
+
+The command prints eligible submission IDs and durations in scheduler order.
+Compare the ID with the browser receipt. The shift lookup is a read-only
+simulation and uses equal initial priority for demo jobs.
 
 ## Batching (design D-02: Slice-Once G-code Merging)
 
