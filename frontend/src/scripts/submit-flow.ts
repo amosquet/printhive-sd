@@ -37,6 +37,8 @@ interface FileEntry {
   file: File;
   dims: { min: number[]; max: number[] } | null;
   parseError?: string;
+  /** In-flight (or settled) bounding-box parse; awaited before validating. */
+  parsePromise?: Promise<void>;
 }
 
 interface FlowState {
@@ -135,7 +137,7 @@ function pushPreview() {
 // ---------- file handling ----------
 
 function parseDims(entry: FileEntry): Promise<void> {
-  return new Promise((resolve) => {
+  const promise = new Promise<void>((resolve) => {
     let worker: Worker;
     try {
       worker = new Worker(new URL('../workers/stl.worker.ts', import.meta.url), { type: 'module' });
@@ -158,12 +160,15 @@ function parseDims(entry: FileEntry): Promise<void> {
     worker.postMessage({
       file: entry.file,
       name: entry.file.name,
-      rotation: DEFAULT_ROTATION,
+      // measure under the saved orientation so printer-fit uses the rotated bounding box
+      rotation: state.orientations.get(entry.file) ?? DEFAULT_ROTATION,
       mirror: false,
       scale: 1,
       hull: false,
     });
   });
+  entry.parsePromise = promise;
+  return promise;
 }
 
 async function addFiles(selected: File[]) {
@@ -544,6 +549,7 @@ function resetFlow() {
     submitTimer = null;
   }
   $('#upload-progress').hidden = true;
+  setSubmitButtons(false);
   showStep('details');
   clearMessages();
   renderFileList();
@@ -568,7 +574,13 @@ function revealFile(index: number) {
   renderFileList();
 }
 
-function toReview(): boolean {
+async function toReview(): Promise<boolean> {
+  clearMessages();
+  // Wait for any in-flight model parses so entry.dims / entry.parseError are
+  // settled before validating — an unreadable or still-parsing file must not
+  // slip past the printer-fit check.
+  if (state.files.some((entry) => !entry.dims && !entry.parseError)) setFormMessage('Reading your model files…');
+  await Promise.all(state.files.map((entry) => entry.parsePromise ?? Promise.resolve()));
   clearMessages();
   const files = state.files.map((entry) => entry.file);
   const invalid = validateFiles(files);
@@ -620,13 +632,17 @@ function toReview(): boolean {
   return true;
 }
 
+function setSubmitButtons(busy: boolean) {
+  ($('#confirm-button') as HTMLButtonElement).disabled = busy;
+  ($('#back-button') as HTMLButtonElement).disabled = busy;
+  $('#cancel-button').hidden = !busy;
+}
+
 function startSubmit() {
   if (state.busy) return;
   state.busy = true;
   state.progress = 0;
-  ($('#confirm-button') as HTMLButtonElement).disabled = true;
-  ($('#back-button') as HTMLButtonElement).disabled = true;
-  $('#cancel-button').hidden = false;
+  setSubmitButtons(true);
   const progress = $('#upload-progress');
   const bar = $('#upload-progress-bar') as HTMLProgressElement;
   const text = $('#upload-progress-text');
@@ -653,9 +669,7 @@ function cancelSubmit() {
   }
   state.busy = false;
   $('#upload-progress').hidden = true;
-  ($('#confirm-button') as HTMLButtonElement).disabled = false;
-  ($('#back-button') as HTMLButtonElement).disabled = false;
-  $('#cancel-button').hidden = true;
+  setSubmitButtons(false);
   setFormMessage('Upload canceled.');
 }
 
@@ -666,6 +680,7 @@ function finishSubmit() {
   }
   state.busy = false;
   $('#upload-progress').hidden = true;
+  setSubmitButtons(false);
   renderReceipt();
   showStep('done');
   pushPreview();
@@ -722,7 +737,14 @@ export function initSubmitFlow() {
   preview = new PrintPreview($('#preview-root'), {
     onRotationChange: (rotation) => {
       const entry = activeEntry();
-      if (entry) state.orientations.set(entry.file, rotation);
+      if (entry) {
+        state.orientations.set(entry.file, rotation);
+        // re-measure under the new orientation so fit checks and summaries use rotated dims
+        void parseDims(entry).then(() => {
+          renderFileList();
+          if (state.step === 'review') renderReview();
+        });
+      }
       pushPreview();
       if (state.step === 'review') renderReview();
     },
@@ -874,7 +896,7 @@ export function initSubmitFlow() {
   // step navigation
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    if (state.step === 'details') toReview();
+    if (state.step === 'details') void toReview();
     else if (state.step === 'review') startSubmit();
   });
   $('#edit-button').addEventListener('click', () => {

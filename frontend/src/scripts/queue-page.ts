@@ -319,12 +319,19 @@ function render(prints: MyPrint[]): void {
 	}
 }
 
+/** Parse a `formatEstTime` string ("45 min", "2 h", "2 h 15 m") into minutes; null when unrecognized. */
+export function parseEstMinutes(estTime: string): number | null {
+	const hours = /(\d+)\s*h(?:\s*(\d+)\s*m)?/.exec(estTime);
+	if (hours) return Number(hours[1]) * 60 + Number(hours[2] ?? 0);
+	const mins = /(\d+)\s*min/.exec(estTime);
+	if (mins) return Number(mins[1]);
+	return null;
+}
+
 function estReadyFromNow(print: MyPrint): string {
 	// ~est. print time from now, formatted like the queue ETAs (e.g. ~4:45 PM)
-	const match = /(\d+)\s*h(?:\s*(\d+)\s*m)?/.exec(print.estTime);
-	const hours = match ? Number(match[1]) : 2;
-	const minutes = match ? Number(match[2] ?? 0) : 15;
-	const ready = new Date(Date.now() + (hours * 60 + minutes) * 60_000);
+	const minutes = parseEstMinutes(print.estTime) ?? 2 * 60 + 15; // fallback: 2 h 15 m
+	const ready = new Date(Date.now() + minutes * 60_000);
 	let h = ready.getHours() % 12;
 	if (h === 0) h = 12;
 	const ampm = ready.getHours() >= 12 ? 'PM' : 'AM';

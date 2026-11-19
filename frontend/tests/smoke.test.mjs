@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { MAX_FILE_SIZE, MAX_BATCH_SIZE, canContinue, validateFiles, formatMiB } from "../src/scripts/file-validation.js";
 import { PROFILES, MATERIALS, defaultPartSettings, resolvePartSettings, partScale, partSupportAngle } from "../src/scripts/print-settings.ts";
+import { parseEstMinutes } from "../src/scripts/queue-page.ts";
 
 const queuePage = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
 const myPrintsPage = await readFile(new URL("../dist/my-prints/index.html", import.meta.url), "utf8");
@@ -117,4 +118,13 @@ test("the FR-05 profiles pin layer height, walls and infill like the backend pre
 	assert.equal(partSupportAngle({ ...global, supportAngle: "" }), undefined);
 	assert.equal(partSupportAngle({ ...global, supportAngle: "45" }), 45);
 	assert.equal(partSupportAngle({ ...global, supportAngle: "91" }), null);
+});
+
+test("est. time strings parse to minutes, including minutes-only formats", () => {
+	assert.equal(parseEstMinutes("45 min"), 45);
+	assert.equal(parseEstMinutes("2 h"), 120);
+	assert.equal(parseEstMinutes("2 h 15 m"), 135);
+	assert.equal(parseEstMinutes("1 h 5 m"), 65);
+	assert.equal(parseEstMinutes("—"), null);
+	assert.equal(parseEstMinutes(""), null);
 });
