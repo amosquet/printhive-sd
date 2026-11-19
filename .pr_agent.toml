@@ -1,6 +1,7 @@
 [config]
 repo_context_files = ["doc/DevelopmentProcess.md", "frontend/AGENTS.md"]
 max_model_tokens = 128000
+reasoning_effort = "xhigh"
 
 [ignore]
 glob = ["**/vendor/**", "frontend/public/preview-profiles/**"]
