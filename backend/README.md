@@ -29,7 +29,7 @@ from backend.batching import PrintJob, plan_batches
 batches = plan_batches([PrintJob(source=Path("model.stl"), printer="prusa-mk4")])
 plate_gcode = batches[0].gcode            # one merged file for the plate
 print(batches[0].plate)                   # per-printer plate (250x210 for prusa-mk4)
-print(batches[0].total_duration_s)        # FR-08/FR-10 input
+print(batches[0].total_duration_s)        # sum of available estimates
 ```
 
 Each job is sliced once with the Orca Slicer CLI using the pinned presets in
@@ -51,3 +51,26 @@ committed presets; otherwise they skip (as in CI):
 ```bash
 uv run pytest tests/ -k orca   # real Orca Slicer end-to-end
 ```
+
+## Scheduling
+
+`src/backend/priority_scheduling.py` ranks eligible jobs using concrete staff
+shifts, an explicit clock, and a configured priority-aging rate. See the
+[scheduling design and integration notes](../doc/Scheduling-Foundation.md).
+
+### Simulated atomic dispatch
+
+`backend.dispatch.DispatchStore` connects ready units to the priority scheduler
+using a local SQLite database. Create each scheduler's store with the same file
+path, enqueue `QueuedJob` values, and call `claim_next(shifts, now=..., policy=...)`.
+Before a claim, staff must call `confirm_bed_clear()`; a successful claim marks
+the simulated printer busy and consumes that confirmation in the same database
+transaction as the job claim. Call `finish_simulated_print(job_id)` when the
+simulation finishes, then confirm clearance again before the next claim.
+
+Already formed `Batch` objects can be enqueued via `enqueue_batch` with an
+explicit stable batch ID, submission time, and initial priority. Every member
+must have a positive finite duration; otherwise the batch remains ineligible.
+The caller assigns each physical job to one dispatch unit, either as a single
+job or as part of a batch. The simulated printer records state transitions in
+SQLite. A printer relay and G-code delivery are future integration work.
