@@ -5,10 +5,11 @@
  *
  * The submit flow appends every submitted print to localStorage under
  * `printhive:myPrints`; this script lists them as clickable "My prints"
- * rows next to the live queue, and shows the selected print's banner plus
- * inspector panel (status steps, why/slicing/pickup boxes). Purple dashed
- * demo buttons advance the selected print queued → printing → ready so the
- * Figma screens can be previewed without a backend.
+ * rows (the page shows only your own prints), and shows the selected
+ * print's banner plus inspector panel (status steps, why/slicing/pickup
+ * boxes). Purple dashed demo buttons advance the selected print
+ * queued → printing → ready so the Figma screens can be previewed without
+ * a backend.
  */
 
 export type MyPrintStatus = 'queued' | 'printing' | 'ready' | 'canceled';
@@ -67,79 +68,9 @@ function $(id: string): HTMLElement {
 	return el;
 }
 
-// ---------- public queue sample (Figma S0 rows, read-only here) ----------
+// ---------- my prints rows (clickable) ----------
 
 type BadgeTone = 'green' | 'yellow' | 'amber' | 'gray';
-interface PublicJob {
-	badges: { text: string; tone: BadgeTone }[];
-	title: string;
-	meta: string;
-	progress?: number;
-	why?: string;
-}
-interface QueueSection {
-	name: string;
-	jobs: PublicJob[];
-}
-
-const PUBLIC_SECTIONS: QueueSection[] = [
-	{
-		name: 'Printing',
-		jobs: [
-			{
-				badges: [{ text: 'Printing', tone: 'amber' }],
-				title: 'Bracket v2',
-				meta: 'Prusa Core ONE+ · PLA white · 0.2 mm layers · Est. ready ~4:55 PM',
-				progress: 62,
-			},
-		],
-	},
-	{
-		name: 'Queued',
-		jobs: [
-			{
-				badges: [{ text: 'Starts ~2:30 PM', tone: 'green' }],
-				title: 'Cable clip ×2',
-				meta: 'Bambu H2D Pro · PLA black · Plate open for other PLA black parts',
-				why: 'Why here? Other PLA black parts can still join this build plate (FR-11), and it finishes before the 6:00 PM shift ends (FR-10).',
-			},
-			{
-				badges: [{ text: 'Waiting · overnight', tone: 'gray' }],
-				title: 'Enclosure lid (est. 9 h 10 m)',
-				meta: 'Prusa Core ONE+ · PETG black · Submitted 1 h ago',
-				why: 'Why later? Too long to finish within today’s staffed shift, so it waits for the overnight window (FR-10). Waiting time raises its priority (FR-17).',
-			},
-		],
-	},
-];
-
-function renderPublicJob(job: PublicJob): string {
-	const badges = job.badges.map((b) => `<span class="badge badge-${b.tone}">${esc(b.text)}</span>`).join('');
-	const why = job.why ? `<div class="why-here"><p>${esc(job.why)}</p></div>` : '';
-	const side = job.progress !== undefined
-		? `<div class="job-side"><div class="job-progress"><div class="progress-track" role="img" aria-label="${job.progress}% complete"><span style="width:${job.progress}%"></span></div><span class="job-pct">${job.progress}%</span></div></div>`
-		: `<div class="job-side"><span class="details-link">Details ›</span></div>`;
-	return `<div class="job-row">
-  <div class="job-badges">${badges}</div>
-  <div class="job-info">
-    <p class="job-title">${esc(job.title)}</p>
-    <p class="job-meta">${esc(job.meta)}</p>
-    ${why}
-  </div>
-  ${side}
-</div>`;
-}
-
-function renderPublicSections(): string {
-	return PUBLIC_SECTIONS.map(
-		(section) => `<section class="queue-section" aria-label="${esc(section.name)}">
-  <div class="section-head"><h2>${esc(section.name)}</h2><span class="count-chip">${section.jobs.length}</span></div>
-  <div class="job-list">${section.jobs.map(renderPublicJob).join('')}</div>
-</section>`,
-	).join('');
-}
-
-// ---------- my prints rows (clickable) ----------
 
 function myPrintBadges(print: MyPrint): { text: string; tone: BadgeTone }[] {
 	switch (print.status) {
@@ -357,8 +288,15 @@ function render(prints: MyPrint[]): void {
 	}
 
 	$('queue-main').innerHTML =
-		(prints.length ? renderMyPrintsSection(prints, selectedRef) : '') +
-		renderPublicSections() +
+		(prints.length
+			? renderMyPrintsSection(prints, selectedRef)
+			: `<section class="queue-section" aria-label="My prints">
+  <div class="section-head"><h2>My prints</h2><span class="count-chip">0</span></div>
+  <div class="job-list"><div class="job-row"><div class="job-info">
+    <p class="job-title">No prints yet</p>
+    <p class="job-meta">Submit a print from the queue page and it will appear here.</p>
+  </div></div></div>
+</section>`) +
 		`<p class="queue-note">Updates every 15 seconds. Select one of your prints to inspect it.</p>`;
 
 	const panel = $('my-print');

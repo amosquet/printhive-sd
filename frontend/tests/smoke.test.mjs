@@ -24,11 +24,13 @@ test("the queue home matches the final design S0 (hero, live queue, printers)", 
 	assert.match(queuePage, />Queued</);
 });
 
-test("the my-prints page hosts the S5–S7 inspector with an empty state", () => {
+test("the my-prints page shows only your own prints plus the S5–S7 inspector", () => {
 	assert.match(myPrintsPage, /id="queue-banner"/);
 	assert.match(myPrintsPage, /id="queue-main"/);
 	assert.match(myPrintsPage, /id="my-print"/);
 	assert.match(myPrintsPage, /No print yet/);
+	assert.match(myPrintsPage, />My prints</);
+	assert.doesNotMatch(myPrintsPage, /Bracket v2/, "the public queue stays on /, not on /my-prints");
 	assert.match(myPrintsPage, /href="\/submit"/);
 	assert.match(myPrintsPage, /href="\/my-prints"[^>]*>My prints</, "nav links to My prints");
 });
