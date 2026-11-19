@@ -19,14 +19,26 @@ const currentPath = Astro.url.pathname;
 	</head>
 	<body>
 		<header class="site-header">
-			<a class="wordmark" href="/" aria-label="PrintHive home"><span class="mark" aria-hidden="true"></span><span>PrintHive</span></a>
-			<nav aria-label="Primary navigation">
-				<a class:list={[{ active: currentPath === "/" }]} href="/">Home</a>
-				<a class:list={[{ active: currentPath === "/submit" }]} href="/submit">Submit a print</a>
-				<a href="#" aria-disabled="true">My prints</a>
-			</nav>
+			<div class="header-inner">
+				<a class="wordmark" href="/" aria-label="PrintHive home">
+					<svg viewBox="0 0 22 24" aria-hidden="true" focusable="false"><path d="M11 1.6 20.2 6.9v10.2L11 22.4 1.8 17.1V6.9Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+					<span>PrintHive</span>
+				</a>
+				<nav aria-label="Primary navigation">
+					<a class:list={[{ active: currentPath === "/" }]} href="/">Queue</a>
+					<a class:list={[{ active: currentPath === "/submit" }]} href="/submit">Submit a print</a>
+					<a class:list={[{ active: currentPath === "/my-prints" }]} href="/my-prints">My prints</a>
+					<span class="nav-divider" aria-hidden="true"></span>
+					<a href="#" aria-disabled="true">Operators</a>
+				</nav>
+			</div>
 		</header>
 		<slot />
-		<footer class="site-footer"><span>PrintHive student portal</span><span>Prototype · No files are stored</span></footer>
+		<footer class="site-footer">
+			<div class="footer-inner">
+				<span>PrintHive student portal</span>
+				<span>Prototype · No files are stored</span>
+			</div>
+		</footer>
 	</body>
 </html>

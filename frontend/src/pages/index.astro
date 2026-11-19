@@ -1,86 +1,76 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import QueueSections from "../components/QueueSections.astro";
 
-const queue = [
-	{ title: "Robot arm bracket", owner: "A. Student", time: "2 hr 14 min", state: "Printing", progress: 68 },
-	{ title: "Camera mount", owner: "J. Student", time: "1 hr 45 min", state: "Next", progress: 0 },
-	{ title: "Enclosure lid", owner: "M. Student", time: "54 min", state: "Waiting", progress: 0 },
+const printers = [
+	{
+		lab: "Bambu Lab",
+		name: "Bambu H2D Pro",
+		status: "available",
+		specs: [
+			["Build volume", "350 × 320 × 325 mm"],
+			["Kinematics", "Dual-Nozzle CoreXY"],
+			["Chamber", "Active heating (up to 65°C)"],
+			["Max hotend temp", "350°C"],
+		],
+	},
+	{
+		lab: "Prusa Research",
+		name: "Prusa Core ONE+",
+		status: "printing",
+		specs: [
+			["Build volume", "250 × 220 × 270 mm"],
+			["Kinematics", "Fully Enclosed CoreXY"],
+			["Chamber", "Active temperature regulation"],
+			["Max hotend temp", "300°C"],
+		],
+	},
 ];
+
+const hexPoints = (cx: number, cy: number) =>
+	`${cx},${cy - 34} ${cx + 29.4},${cy - 17} ${cx + 29.4},${cy + 17} ${cx},${cy + 34} ${cx - 29.4},${cy + 17} ${cx - 29.4},${cy - 17}`;
+const hexCenters = [[120, 40], [61, 91], [120, 91], [179, 91], [90, 142], [149, 142]];
 ---
 
-<BaseLayout title="Print queue | PrintHive" description="View the public PrintHive queue and submit a 3D print.">
-	<main class="queue-page">
-		<section class="hero" aria-labelledby="page-title">
-			<div>
-				<p class="eyebrow">PURDUE MAKER SPACE</p>
-				<h1 id="page-title"><span>HIVE</span><br />3d printing</h1>
-				<p class="intro">Check the live queue, then submit your model when you are ready.</p>
-				<div class="actions">
-					<a class="button primary" href="/submit">Submit a print <span aria-hidden="true">→</span></a>
-					<button class="button" type="button" disabled>Join the waitlist</button>
+<BaseLayout title="Queue | PrintHive" description="Live PrintHive queue — see what is printing, then submit your own 3D print.">
+	<main class="page">
+		<section class="hero" aria-label="Welcome">
+			<div class="hero-stack">
+				<h1><span class="hive">HIVE</span><br /><span class="sub">3d printing</span></h1>
+				<div class="hero-actions">
+					<a class="button primary" href="/submit">Submit a print</a>
+					<a class="button" href="#printers">Available printers</a>
 				</div>
 			</div>
-			<div class="honeycomb" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+			<svg class="honeycomb" viewBox="0 0 240 190" aria-hidden="true" focusable="false">
+				{hexCenters.map(([cx, cy]) => <polygon points={hexPoints(cx, cy)} fill="#efc84a" stroke="#252720" stroke-width="2" stroke-linejoin="round" />)}
+			</svg>
 		</section>
 
-		<section class="queue" aria-labelledby="queue-title">
-			<div class="queue-heading"><div><p class="eyebrow">PUBLIC VIEW</p><h2 id="queue-title">Print queue</h2></div><p>Updated just now</p></div>
-			<ol>
-				{queue.map((job, index) => (
-					<li class:list={[{ active: index === 0 }]}>
-						<div class="position">{String(index + 1).padStart(2, "0")}</div>
-						<div class="job"><strong>{job.title}</strong><span>{job.owner}</span></div>
-						<div class="duration"><span>ESTIMATED TIME</span><strong>{job.time}</strong></div>
-						<div class="state">
-							<span class:list={["state-label", { printing: index === 0 }]}>{job.state}</span>
-							{index === 0 && <div class="progress" aria-label={`${job.progress}% complete`}><span style={`width:${job.progress}%`}></span></div>}
+		<QueueSections />
+
+		<section class="printers" id="printers" aria-labelledby="printers-title">
+			<h2 id="printers-title">Available printers</h2>
+			<div class="printer-grid">
+				{printers.map((printer) => (
+					<article class="printer-card">
+						<div class="printer-top">
+							<div>
+								<p class="printer-lab">{printer.lab}</p>
+								<h3 class="printer-name">{printer.name}</h3>
+							</div>
+							<span class:list={["badge", printer.status === "available" ? "badge-green" : "badge-amber"]}>
+								● {printer.status === "available" ? "Available" : "Printing"}
+							</span>
 						</div>
-					</li>
+						<dl class="printer-specs">
+							{printer.specs.map(([label, value]) => (
+								<div><dt>{label}</dt><dd>{value}</dd></div>
+							))}
+						</dl>
+					</article>
 				))}
-			</ol>
+			</div>
 		</section>
 	</main>
 </BaseLayout>
-
-<style>
-	.queue-page { max-width: 1180px; margin: 0 auto; padding: 54px clamp(22px,4vw,48px) 70px; }
-	.hero { display: grid; grid-template-columns: 1fr 310px; align-items: center; min-height: 315px; padding: 42px 54px; border: 1px solid var(--line); background: var(--surface); }
-	.eyebrow { margin: 0 0 12px; color: #777970; font-size: 9px; font-weight: 750; letter-spacing: 1.2px; }
-	h1 { margin: 0; font-size: clamp(39px,6vw,68px); line-height: .86; font-weight: 350; letter-spacing: -2px; }
-	h1 span { font-weight: 800; }
-	.intro { max-width: 470px; margin: 25px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
-	.actions { display: flex; gap: 10px; margin-top: 27px; }
-	.honeycomb { display: grid; grid-template-columns: repeat(3,68px); gap: 5px; justify-self: center; transform: rotate(30deg); }
-	.honeycomb span { width: 68px; height: 59px; background: var(--yellow); clip-path: polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); }
-	.honeycomb span:nth-child(4) { grid-column: 2; }
-	.queue { margin-top: 28px; border: 1px solid var(--line); background: var(--surface); }
-	.queue-heading { display: flex; align-items: end; justify-content: space-between; padding: 28px 30px 20px; border-bottom: 1px solid var(--line); }
-	.queue-heading h2 { margin: 0; font-size: 22px; font-weight: 600; }
-	.queue-heading p { margin: 0; color: #8a8b84; font-size: 10px; }
-	.queue ol { margin: 0; padding: 0; list-style: none; }
-	.queue li { display: grid; grid-template-columns: 58px minmax(170px,1fr) 150px 180px; min-height: 83px; align-items: center; padding: 0 28px; border-bottom: 1px solid #e5e4da; }
-	.queue li:last-child { border-bottom: 0; }
-	.queue li.active { background: #fffdf2; }
-	.position { color: #a0a198; font-size: 12px; }
-	.job, .duration, .state { display: flex; flex-direction: column; gap: 6px; }
-	.job strong, .duration strong { font-size: 12px; font-weight: 650; }
-	.job span, .duration span { color: #878880; font-size: 9px; }
-	.state { align-items: end; }
-	.state-label { color: #6e706a; font-size: 10px; }
-	.state-label.printing { color: var(--green); font-weight: 700; }
-	.progress { width: 142px; height: 3px; background: #e6e3d6; }
-	.progress span { display: block; height: 100%; background: var(--yellow); }
-	@media (max-width: 760px) {
-		.hero { grid-template-columns: 1fr; gap: 45px; padding: 36px 28px; }
-		.honeycomb { grid-template-columns: repeat(3,44px); }
-		.honeycomb span { width: 44px; height: 38px; }
-		.queue li { grid-template-columns: 35px 1fr auto; gap: 12px; padding: 15px 18px; }
-		.duration { display: none; }
-		.state { align-items: end; }
-		.progress { width: 75px; }
-	}
-	@media (max-width: 440px) {
-		.actions { align-items: stretch; flex-direction: column; }
-		.queue-heading { align-items: start; flex-direction: column; gap: 8px; }
-	}
-</style>

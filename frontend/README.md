@@ -1,4 +1,23 @@
-# Astro Starter Kit: Minimal
+# PrintHive frontend (Astro)
+
+Static Astro site. `/` is the public queue view (Final Design S0); `/my-prints`
+lists your own submitted prints next to the live queue, with the "MY PRINT"
+inspector (Final Design S5–S7) for the print you select; `/submit` is the
+print submission flow (part details + default print settings + per-part
+options → review → submit), with an interactive three.js preview that slices
+the selected model in the browser. Each submission is appended to
+`localStorage` (`printhive:myPrints`), so "View my print" on the receipt lands
+on S5 (queued); dashed demo buttons advance the selected print to printing
+(S6) and ready for pickup (S7).
+
+## Preview slicing runtime
+
+The submit page uses the vendored `@time-estimator/browser-preview` package
+(`vendor/`) to run the checksum-pinned, source-built Orca WASM engine in a Web
+Worker and render generated support shapes. `bun run build` first runs
+`bun run preview:runtime`, which copies the bundled, checksummed engine assets
+into `public/preview-engine/` (gitignored). Resolved Orca printer profiles live
+in `public/preview-profiles/` (see its `NOTICE.md`/`LICENSE.txt`).
 
 ```sh
 bun create astro@latest -- --template minimal
