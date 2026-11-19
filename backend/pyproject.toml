@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 backend = "backend:main"
+printhive-slice-worker = "backend.slice_worker:main"
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
