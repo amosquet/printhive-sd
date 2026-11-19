@@ -22,6 +22,8 @@ test("the queue home matches the final design S0 (hero, live queue, printers)", 
 	assert.match(queuePage, /Prusa Core ONE\+/);
 	assert.match(queuePage, />Printing</);
 	assert.match(queuePage, />Queued</);
+	assert.doesNotMatch(queuePage, /Details ›/, "no dead Details links on the queue home");
+	assert.doesNotMatch(queuePage, /Why here\?/, "no purple why-here notes on the queue home");
 });
 
 test("the my-prints page shows only your own prints plus the S5–S7 inspector", () => {
