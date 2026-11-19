@@ -11,6 +11,39 @@ uv run ruff check .  # lint (CI gate)
 uv run pytest tests/ # tests (CI gate)
 ```
 
+## Print submission API
+
+Create a local PostgreSQL database, then copy `.env.example` to `.env` in
+`backend/` and set `DATABASE_URL` to the connection URI. Apply the schema once
+with `psql` from `backend/`, using the same URI:
+
+```bash
+set -a
+. ./.env
+set +a
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sql/print_submissions.sql
+```
+
+Start it alongside the site with `bun dev` from `frontend/`, or start the API
+by itself from `backend/`:
+
+```bash
+uv run --locked uvicorn backend.submissions:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+`POST /api/prints` accepts multipart form data with a JSON `submission` field
+and one or more `models` files in the same order as the JSON `parts`. The API
+stores the request, original file bytes, and per-part settings in PostgreSQL
+and returns a submission ID with status `submitted`. A retry with the same ID
+and payload returns the original receipt. The API checks the Purdue email
+domain, submission fields, file extensions, and upload sizes. The browser
+checks geometry during preview. Email verification, server-side geometry
+validation, and transfer to the slicing worker are separate integration steps.
+Keep the API local until authentication and deployment controls are in place.
+
+Set `PRINTHIVE_TEST_DATABASE_URL` to a PostgreSQL test database to include the
+submission integration test in `uv run --locked pytest tests/`.
+
 ## Batching (design D-02: Slice-Once G-code Merging)
 
 `src/backend/batching/` implements the Dynamic 2D Nesting & Batching
