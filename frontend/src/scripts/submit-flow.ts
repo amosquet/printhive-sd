@@ -12,7 +12,7 @@ import { IDENTITY_ROTATION } from '@time-estimator/browser-preview/pose';
 import { validateFiles, MAX_BATCH_SIZE, formatMiB } from './file-validation.js';
 import { PrintPreview } from './print-preview';
 import { PREVIEW_PRINTERS, selectPreviewPrinter, fitsPreviewPrinter, applyPrintTimeAllowance } from './preview-profile';
-import { saveMyPrint, type MyPrint } from './queue-page';
+import { loadMyPrints, saveMyPrints, type MyPrint } from './queue-page';
 import {
   MATERIALS,
   PROFILES,
@@ -457,7 +457,7 @@ function newPrintRef(): string {
   return `#${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
 }
 
-/** Persist the submitted print so the queue home can show it as "MY PRINT" (Figma S5). */
+/** Persist the submitted print so /my-prints can show it as "MY PRINT" (Figma S5). */
 function rememberSubmittedPrint(): void {
   const first = state.files[0];
   const part = resolvePartSettings(state.global, first ? state.partOptions.get(first.file) : undefined, MATERIALS);
@@ -484,7 +484,7 @@ function rememberSubmittedPrint(): void {
     cubby: '',
     submittedAt: Date.now(),
   };
-  saveMyPrint(print);
+  saveMyPrints([...loadMyPrints(), print]);
 }
 
 function renderReceipt() {

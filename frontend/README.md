@@ -1,13 +1,14 @@
 # PrintHive frontend (Astro)
 
 Static Astro site. `/` is the public queue view (Final Design S0); `/my-prints`
-hosts the "MY PRINT" inspector (Final Design S5–S7) next to the live queue;
-`/submit` is the print submission flow (part details + default print settings
-+ per-part options → review → submit), with an interactive three.js preview
-that slices the selected model in the browser. Submitting stores the print in
-`localStorage` (`printhive:myPrint`), so "View my print" on the receipt lands
-on S5 (queued); dashed demo buttons advance it to printing (S6) and ready for
-pickup (S7).
+lists your own submitted prints next to the live queue, with the "MY PRINT"
+inspector (Final Design S5–S7) for the print you select; `/submit` is the
+print submission flow (part details + default print settings + per-part
+options → review → submit), with an interactive three.js preview that slices
+the selected model in the browser. Each submission is appended to
+`localStorage` (`printhive:myPrints`), so "View my print" on the receipt lands
+on S5 (queued); dashed demo buttons advance the selected print to printing
+(S6) and ready for pickup (S7).
 
 ## Preview slicing runtime
 

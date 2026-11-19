@@ -226,3 +226,8 @@ nav .nav-divider { width: 1px; height: 30px; background: var(--line); }
 	.telemetry { flex-wrap: wrap; }
 	.printer-specs { grid-template-columns: 1fr; }
 }
+
+/* Clickable queue rows on /my-prints (button reset + selected state) */
+button.job-row { width: 100%; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.job-row:hover, button.job-row:focus-visible { border-color: var(--muted); }
+button.job-row[aria-pressed="true"] { border-color: var(--purple); box-shadow: 0 0 0 1px var(--purple); }
