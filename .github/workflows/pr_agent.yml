@@ -64,6 +64,11 @@ jobs:
           github_action_config.auto_improve: "true"
           github_action_config.pr_actions: '["opened", "reopened", "synchronize", "ready_for_review"]'
 
+          # Token budget & ignored static/vendored files
+          # (also in .pr_agent.toml, which PR-Agent reads from master once merged)
+          config.max_model_tokens: "128000"
+          ignore.glob: '["**/vendor/**", "frontend/public/preview-profiles/**"]'
+
           # Publish review findings & code suggestions as inline diff comments
           # (also in .pr_agent.toml, which PR-Agent reads from master once merged)
           pr_reviewer.inline_key_issues: "true"
