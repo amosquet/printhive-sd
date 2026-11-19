@@ -105,6 +105,10 @@ nav .nav-divider { width: 1px; height: 30px; background: var(--line); }
 	outline: 3px solid rgb(91 69 194 / 30%);
 	outline-offset: 2px;
 }
+/* validation errors: red outline instead of the purple focus ring */
+.invalid { border-color: var(--red) !important; outline: 3px solid rgb(180 35 24 / 30%) !important; outline-offset: 2px; }
+.invalid:focus, .invalid:focus-within { outline-color: rgb(180 35 24 / 30%) !important; }
+.invalid:focus-visible { outline-color: rgb(180 35 24 / 40%) !important; }
 .button:disabled { border-color: var(--line-soft); background: var(--gray-soft); color: var(--muted); cursor: not-allowed; }
 
 @media (max-width: 860px) {

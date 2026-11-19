@@ -216,9 +216,28 @@ function removeFileAt(index: number) {
 function setFileMessage(message: string) {
   const el = $('#file-message');
   el.textContent = message;
+  flagInvalid($('#drop-zone'));
 }
 function clearFileMessage() {
   $('#file-message').textContent = '';
+  unflag($('#drop-zone'));
+}
+
+/** Red-outline the problematic field and smooth-scroll to it. */
+function flagInvalid(el: HTMLElement | null): void {
+  if (!el) return;
+  el.classList.add('invalid');
+  el.setAttribute('aria-invalid', 'true');
+  el.focus({ preventScroll: true });
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function unflag(el: HTMLElement | null): void {
+  if (!el) return;
+  el.classList.remove('invalid');
+  el.removeAttribute('aria-invalid');
+}
+function clearInvalid(): void {
+  document.querySelectorAll('.invalid').forEach((el) => unflag(el as HTMLElement));
 }
 function setFormMessage(message: string) {
   const el = state.step === 'review' ? $('#review-message') : $('#form-message');
@@ -229,6 +248,7 @@ function clearMessages() {
   for (const id of ['file-message', 'form-message', 'review-message', 'title-message', 'email-message']) $(id).textContent = '';
   $('#form-message').hidden = true;
   $('#review-message').hidden = true;
+  clearInvalid();
 }
 
 function updateDropZone() {
@@ -567,28 +587,31 @@ function toReview(): boolean {
     if (partScale(part) === null) {
       revealFile(i);
       setFormMessage(`Enter a scale between 0.01% and 10000% for ${entry.file.name}.`);
+      flagInvalid(document.querySelector(`#file-options-${i} [data-override="scalePercent"]`));
       return false;
     }
     if (partSupportAngle(part) === null) {
       revealFile(i);
       setFormMessage(`Enter a whole-number support angle from 0° to 90° for ${entry.file.name}.`);
+      flagInvalid(document.querySelector(`#file-options-${i} [data-override="supportAngle"]`));
       return false;
     }
     const dims = scaledDims(entry, part);
     if (entry.dims && dims.length && !fitsAnyPrinter(dims)) {
       setFormMessage(`${entry.file.name} is too large for every available printer (max ${LARGEST_BED}). Scale it down or lay it on a face.`);
+      flagInvalid(document.querySelector(`#file-options-${i}`));
       return false;
     }
   }
   if (!state.title.trim()) {
     $('#title-message').textContent = 'Enter a part title to continue.';
-    ($('#part-title') as HTMLInputElement).focus();
+    flagInvalid($('#part-title'));
     return false;
   }
   const email = state.email.trim().toLowerCase();
   if (!/^[^@\s]+@purdue\.edu$/.test(email)) {
     $('#email-message').textContent = 'Enter a Purdue email (you@purdue.edu).';
-    ($('#email') as HTMLInputElement).focus();
+    flagInvalid($('#email'));
     return false;
   }
   renderReview();
@@ -826,15 +849,24 @@ export function initSubmitFlow() {
 
   titleInput.addEventListener('input', () => {
     state.title = titleInput.value;
-    if (titleInput.value.trim()) $('#title-message').textContent = '';
+    if (titleInput.value.trim()) {
+      $('#title-message').textContent = '';
+      unflag(titleInput);
+    }
   });
   titleInput.addEventListener('blur', () => {
     if (!titleInput.value.trim()) $('#title-message').textContent = 'Enter a part title to continue.';
   });
   emailInput.addEventListener('input', () => {
     state.email = emailInput.value.toLowerCase();
-    if (state.email.trim()) $('#email-message').textContent = '';
+    if (state.email.trim()) {
+      $('#email-message').textContent = '';
+      unflag(emailInput);
+    }
   });
+  // editing any field clears its red error outline
+  form.addEventListener('input', (event) => unflag(event.target as HTMLElement));
+  form.addEventListener('change', (event) => unflag(event.target as HTMLElement));
   notesInput.addEventListener('input', () => {
     state.notes = notesInput.value;
   });
