@@ -67,6 +67,7 @@ jobs:
 
           # Token budget & ignored static/vendored files
           # (also in .pr_agent.toml, which PR-Agent reads from master once merged)
+          config.custom_model_max_tokens: "1048576" # Gemini 4 1M context window (not yet in pr-agent/LiteLLM built-in limits)
           config.max_model_tokens: "128000"
           ignore.glob: '["**/vendor/**", "frontend/public/preview-profiles/**"]'
 
