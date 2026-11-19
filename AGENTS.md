@@ -19,6 +19,7 @@ and repository-wide work. For frontend work, also follow
   and push the resulting commits normally.
 - Change `dev` and `master` through pull requests. A teammate must approve
   the PR and required checks must pass before it is merged.
+- PRs should only be opened if requested.
 
 ## Verification
 
