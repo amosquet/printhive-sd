@@ -1,5 +1,6 @@
 [config]
 repo_context_files = ["doc/DevelopmentProcess.md", "frontend/AGENTS.md"]
+custom_model_max_tokens = 1048576
 max_model_tokens = 128000
 reasoning_effort = "xhigh"
 
